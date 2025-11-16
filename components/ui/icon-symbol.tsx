@@ -27,6 +27,7 @@ const MAPPING = {
   'questionmark.circle.fill': 'help',
   'exclamationmark.triangle.fill': 'warning',
   'checkmark.seal.fill': 'verified',
+  'camera.fill': 'photo-camera',
 } as IconMapping;
 
 /**

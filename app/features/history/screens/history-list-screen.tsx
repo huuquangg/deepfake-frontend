@@ -1,4 +1,4 @@
-import DetectionCard from '@/app/features/detection/components/detection-card';
+import DetectionCard from '@/app/features/detection/_components/detection-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Alert, ScrollView, StyleSheet } from 'react-native';

@@ -1,12 +1,18 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { Alert, StyleSheet } from 'react-native';
 
-import QuickActionCard from '@/app/features/home/components/quick-action-card';
+import QuickActionCard from '@/app/features/home/_components/quick-action-card';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
 export default function HomeScreen() {
+    const handleCameraPress = () => {
+        // Navigate to camera screen
+        router.push('/features/detection/camera' as any);
+    };
+
     const handleUploadPress = () => {
         // TODO: Navigate to /features/detection/upload when route is configured
         Alert.alert('Coming Soon', 'Upload feature will be available soon');
@@ -37,6 +43,12 @@ export default function HomeScreen() {
             </ThemedView>
 
             <ThemedView style={styles.actionsContainer}>
+                <QuickActionCard
+                    title="Scan with Camera"
+                    description="Real-time face detection"
+                    icon="camera.fill"
+                    onPress={handleCameraPress}
+                />
                 <QuickActionCard
                     title="Upload Media"
                     description="Analyze an image or video"
