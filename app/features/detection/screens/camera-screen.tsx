@@ -5,12 +5,11 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useIsFocused } from '@react-navigation/native';
 import * as FaceDetector from 'expo-face-detector';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { Camera, useCameraDevice, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
-import FaceOverlay from '../_components/face-overlay';
 
 interface DetectedFace {
   bounds: {
@@ -35,10 +34,9 @@ export default function CameraScreen() {
   const isFocused = useIsFocused();
   const colorScheme = useColorScheme();
   const [isActive, setIsActive] = useState(true);
-  const [isCapturing, setIsCapturing] = useState(false);
   const [faceCount, setFaceCount] = useState(0);
   const lastDetectionTime = useRef(0);
-  
+
   const faces = useSharedValue<DetectedFace[]>([]);
 
   // Function to detect faces from image URI
@@ -59,7 +57,7 @@ export default function CameraScreen() {
   // Function to save frame and detect faces
   const processFrame = async (frameUri: string) => {
     const now = Date.now();
-    
+
     // Throttle detection
     if (now - lastDetectionTime.current < DETECTION_INTERVAL) {
       return;
@@ -68,7 +66,7 @@ export default function CameraScreen() {
 
     // Detect faces
     const detectedFaces = await detectFacesFromUri(frameUri);
-    
+
     // Update faces for overlay
     faces.value = detectedFaces;
     setFaceCount(detectedFaces.length);
@@ -76,11 +74,11 @@ export default function CameraScreen() {
 
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
-    
+
     // For real-time detection, we need to save the frame as image first
     // This is a workaround since expo-face-detector works with URIs
     // In production, you'd want to use a native face detection that works with frames directly
-    
+
   }, []);
 
   // Real-time face detection using interval
@@ -90,16 +88,13 @@ export default function CameraScreen() {
     const interval = setInterval(async () => {
       try {
         if (camera.current) {
-          // Take a snapshot for detection
           const photo = await camera.current.takeSnapshot({
             quality: 50, // Lower quality for faster processing
           });
-          
           // Detect faces
           const detectedFaces = await detectFacesFromUri(`file://${photo.path}`);
           faces.value = detectedFaces;
           setFaceCount(detectedFaces.length);
-          
           // Clean up snapshot
           await FileSystem.deleteAsync(`file://${photo.path}`, { idempotent: true });
         }
@@ -111,34 +106,6 @@ export default function CameraScreen() {
     return () => clearInterval(interval);
   }, [isActive, isFocused]);
 
-  // Function to save image to local directory
-  const saveImageLocally = async (photoPath: string) => {
-    try {
-      const timestamp = Date.now();
-      const filename = `${timestamp}.jpg`;
-      
-      // Ensure the directory exists
-      const dirInfo = await FileSystem.getInfoAsync(SAVE_DIRECTORY);
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(SAVE_DIRECTORY, { intermediates: true });
-        console.log('Created directory:', SAVE_DIRECTORY);
-      }
-      
-      // Copy the photo to the destination
-      const destinationUri = `${SAVE_DIRECTORY}/${filename}`;
-      await FileSystem.copyAsync({
-        from: photoPath,
-        to: destinationUri,
-      });
-
-      console.log('Image saved locally:', destinationUri);
-      return { success: true, path: destinationUri, filename, timestamp };
-    } catch (error) {
-      console.error('Save error:', error);
-      throw error;
-    }
-  };
-
   useEffect(() => {
     if (!hasPermission) {
       requestPermission();
@@ -148,36 +115,6 @@ export default function CameraScreen() {
   useEffect(() => {
     setIsActive(isFocused);
   }, [isFocused]);
-
-  const handleCapture = async () => {
-    if (camera.current && !isCapturing) {
-      setIsCapturing(true);
-      try {
-        const photo = await camera.current.takePhoto({
-          flash: 'off',
-          enableShutterSound: false,
-        });
-        
-        // Detect faces in the captured photo
-        const detectedFaces = await detectFacesFromUri(`file://${photo.path}`);
-        
-        console.log('Photo captured:', photo.path);
-        console.log('Faces detected:', detectedFaces.length);
-        
-        // Save to local directory
-        const result = await saveImageLocally(photo.path);
-        console.log('Save result:', result);
-        
-        // Update faces for overlay
-        faces.value = detectedFaces;
-        
-      } catch (error) {
-        console.error('Failed to take photo, detect faces, or upload:', error);
-      } finally {
-        setIsCapturing(false);
-      }
-    }
-  };
 
   if (!hasPermission) {
     return (
@@ -224,7 +161,7 @@ export default function CameraScreen() {
         frameProcessor={frameProcessor}
       />
 
-      <FaceOverlay faces={faces} />
+      {/* <FaceOverlay faces={faces} /> */}
 
       <View style={styles.overlay}>
         <View style={styles.topBar}>
@@ -235,21 +172,6 @@ export default function CameraScreen() {
           </ThemedView>
         </View>
 
-        <View style={styles.bottomBar}>
-          <Pressable
-            style={[
-              styles.captureButton,
-              isCapturing && styles.captureButtonDisabled,
-            ]}
-            onPress={handleCapture}
-            disabled={isCapturing}>
-            {isCapturing ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <View style={styles.captureButtonInner} />
-            )}
-          </Pressable>
-        </View>
       </View>
     </View>
   );

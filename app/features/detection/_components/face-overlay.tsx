@@ -55,7 +55,8 @@ function FaceOval({ faces, index }: FaceOvalProps) {
       top: origin.y,
       width: size.width,
       height: size.height,
-      borderRadius: size.width / 2, // Creates oval effect
+      // make rectangle
+      borderRadius: 0,
       borderWidth: 3,
       borderColor: 'rgba(52, 199, 89, 0.8)',
       backgroundColor: 'rgba(52, 199, 89, 0.1)',
