@@ -16,6 +16,7 @@ import {
 } from "@/app/types/user.types";
 import { mockApiService } from "@/app/services/mock-api.service";
 import { authStorage } from "@/app/services/auth-storage.service";
+import { apiService } from "@/app/services/api.service";
 
 interface AuthContextType extends AuthState {
   login: (data: LoginRequest) => Promise<void>;
@@ -72,8 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (data: LoginRequest) => {
     try {
-      const response = await mockApiService.login(data);
-
+      const response = await apiService.login(data);
       // Save to storage
       await authStorage.saveTokens(response.tokens);
       await authStorage.saveUser(response.user);
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: RegisterRequest) => {
     try {
-      const response = await mockApiService.register(data);
+      const response = await apiService.register(data);
 
       // Save to storage
       await authStorage.saveTokens(response.tokens);
