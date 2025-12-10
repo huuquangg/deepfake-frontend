@@ -13,12 +13,12 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useAuth } from "@/app/contexts/auth-context";
-import { mockApiService } from "@/app/services/mock-api.service";
+import { apiService } from "@/app/services/api.service";
 
 export default function TransferConfirmScreen() {
   const colorScheme = useColorScheme();
   const params = useLocalSearchParams();
-  const { account, refreshAccount } = useAuth();
+  const { account, tokens, refreshAccount } = useAuth(); // ← Thêm tokens
   const tintColor = Colors[colorScheme ?? "light"].tint;
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -30,25 +30,29 @@ export default function TransferConfirmScreen() {
     setIsProcessing(true);
 
     try {
-      // Call mock API to transfer
-      const response = await mockApiService.transfer(
-        {
-          toAccountNumber: toAccountNumber as string,
-          amount: amountNumber,
-          description: description as string,
-        },
-        faceImageUri as string
-      );
+      // Check token
+      if (!tokens?.accessToken) {
+        throw new Error("Chưa đăng nhập");
+      }
+
+      // Call REAL API to transfer
+      const response = await apiService.transfer(tokens.accessToken, {
+        toAccountNumber: toAccountNumber as string,
+        amount: amountNumber,
+        description: description as string,
+        faceImageBase64: "", // TODO: Convert faceImageUri to base64
+      });
 
       // Refresh account balance
       await refreshAccount();
 
       // Navigate to result screen
+      // Navigate to result screen
       router.replace({
         pathname: "/features/transfer/result" as any,
         params: {
           success: "true",
-          transactionCode: response.transaction.transactionCode,
+          transactionCode: response.transaction.transaction_id, // ← Backend field name
           amount: amountNumber.toString(),
           toAccountNumber: toAccountNumber as string,
           message: response.message,

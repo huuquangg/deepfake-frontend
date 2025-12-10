@@ -9,11 +9,46 @@ import { useAuth } from "@/app/contexts/auth-context";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useEffect, useState } from "react";
+import { apiService } from "@/app/services/api.service";
 
 export default function HomeScreen() {
-  const { user, account, isAuthenticated, logout } = useAuth();
+  const { user, account, tokens, isAuthenticated, logout } = useAuth();
   const colorScheme = useColorScheme();
   const tintColor = Colors[colorScheme ?? "light"].tint;
+  const [realBalance, setRealBalance] = useState<number | null>(null);
+  const [accountNumber, setAccountNumber] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+
+  // Fetch real account data from backend
+  useEffect(() => {
+    if (isAuthenticated && tokens?.accessToken) {
+      // ← Check tokens
+      fetchAccountData();
+    }
+  }, [isAuthenticated, tokens]);
+
+  const fetchAccountData = async () => {
+    try {
+      setLoading(true);
+      if (!tokens?.accessToken) return;
+
+      const token = tokens.accessToken;
+
+      // Get account info (account number)
+      const accountInfo = await apiService.getAccountInfo(token);
+      setAccountNumber(accountInfo.accountNumber);
+
+      // Get real balance
+      const balance = await apiService.getBalance(token);
+      setRealBalance(balance);
+    } catch (error) {
+      console.error("Failed to fetch account data:", error);
+      // Keep using mock data if API fails
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCameraPress = () => {
     router.push("/features/detection/camera" as any);
@@ -108,7 +143,9 @@ export default function HomeScreen() {
           <ThemedView style={styles.balanceContainer}>
             <ThemedText style={styles.balanceLabel}>SỐ DƯ KHẢ DỤNG</ThemedText>
             <ThemedText style={styles.balanceAmount}>
-              {account.balance.toLocaleString("vi-VN")}
+              {realBalance !== null
+                ? realBalance.toLocaleString("vi-VN")
+                : account.balance.toLocaleString("vi-VN")}
             </ThemedText>
             <ThemedText style={styles.currency}>VND</ThemedText>
           </ThemedView>
@@ -117,7 +154,7 @@ export default function HomeScreen() {
           <ThemedView style={styles.accountNumberRow}>
             <IconSymbol name="creditcard.fill" size={16} color="#888" />
             <ThemedText style={styles.accountNumber}>
-              STK: {account.accountNumber}
+              STK: {accountNumber || account.accountNumber}
             </ThemedText>
           </ThemedView>
         </ThemedView>
