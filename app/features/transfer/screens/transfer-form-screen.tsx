@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -13,15 +13,34 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useAuth } from "@/app/contexts/auth-context";
+import { apiService } from "@/app/services/api.service";
 
 export default function TransferFormScreen() {
   const colorScheme = useColorScheme();
-  const { account } = useAuth();
+  const { account, tokens } = useAuth(); // ← Thêm tokens
   const tintColor = Colors[colorScheme ?? "light"].tint;
 
   const [toAccountNumber, setToAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [realBalance, setRealBalance] = useState<number | null>(null);
+
+  // Fetch real balance from backend
+  useEffect(() => {
+    if (account?.userId && tokens?.accessToken) {
+      fetchBalance();
+    }
+  }, [account, tokens]);
+
+  const fetchBalance = async () => {
+    try {
+      if (!tokens?.accessToken) return;
+      const balance = await apiService.getBalance(tokens.accessToken);
+      setRealBalance(balance);
+    } catch (error) {
+      console.error("Failed to fetch balance:", error);
+    }
+  };
 
   const formatCurrency = (value: string) => {
     // Remove non-digits
@@ -59,7 +78,10 @@ export default function TransferFormScreen() {
       return;
     }
 
-    if (account && amountNumber > account.balance) {
+    // ✅ Check real balance
+    const currentBalance =
+      realBalance !== null ? realBalance : account?.balance || 0;
+    if (amountNumber > currentBalance) {
       Alert.alert("Lỗi", "Số dư không đủ");
       return;
     }
@@ -99,7 +121,11 @@ export default function TransferFormScreen() {
           <ThemedView style={styles.balanceCard}>
             <ThemedText style={styles.balanceLabel}>Số dư khả dụng</ThemedText>
             <ThemedText type="subtitle" style={styles.balanceAmount}>
-              {account.balance.toLocaleString("vi-VN")} VND
+              {(realBalance !== null
+                ? realBalance
+                : account?.balance || 0
+              ).toLocaleString("vi-VN")}{" "}
+              VND
             </ThemedText>
           </ThemedView>
         )}
@@ -333,17 +359,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     padding: 16,
-    paddingVertical: 20, // Thêm padding trên/dưới
+    paddingVertical: 20,
     borderRadius: 12,
     backgroundColor: "rgba(10, 126, 164, 0.1)",
     marginTop: 16,
-    marginBottom: 20, // Thêm margin dưới để tránh bị cắt
+    marginBottom: 20,
   },
   infoText: {
     flex: 1,
     fontSize: 13,
     opacity: 0.8,
-    lineHeight: 20, // Thêm lineHeight để text không bị chật
-    paddingTop: 2, // Căn text với icon
+    lineHeight: 20,
+    paddingTop: 2,
   },
 });
