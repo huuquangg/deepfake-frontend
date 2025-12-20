@@ -1,160 +1,165 @@
+// Transaction History Screen - Hiển thị lịch sử giao dịch
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { useAuth } from "@/app/contexts/auth-context";
+import { apiService } from "@/app/services/api.service";
 import { useState, useEffect } from "react";
 import {
-  Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   RefreshControl,
+  View,
+  ActivityIndicator,
+  Pressable,
 } from "react-native";
-import { router } from "expo-router";
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useAuth } from "@/app/contexts/auth-context";
-import { mockApiService } from "@/app/services/mock-api.service";
-import { Transaction } from "@/app/types/transaction.types";
+import { Ionicons } from "@expo/vector-icons";
+
+// Transaction item từ backend
+interface TransactionItem {
+  id: number;
+  transaction_id: string;
+  from_account_id: number;
+  to_account_id?: number; // ⭐ THÊM để phân biệt GỬI/NHẬN
+  to_account_number: string;
+  amount: number;
+  description: string;
+  status: "PENDING" | "COMPLETED" | "FAILED";
+  created_at: string;
+  completed_at?: string;
+}
 
 export default function TransactionHistoryScreen() {
-  const colorScheme = useColorScheme();
-  const { isAuthenticated } = useAuth();
-  const tintColor = Colors[colorScheme ?? "light"].tint;
-
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const { tokens, account } = useAuth();
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [myAccountId, setMyAccountId] = useState<number | null>(null);
 
+  // Lấy account ID của user hiện tại
   useEffect(() => {
-    if (isAuthenticated) {
-      loadTransactions();
-    }
-  }, [isAuthenticated]);
+    const fetchAccountId = async () => {
+      if (!tokens?.accessToken) return;
 
-  const loadTransactions = async () => {
+      try {
+        const accountInfo = await apiService.getAccountInfo(tokens.accessToken);
+        setMyAccountId(parseInt(accountInfo.id));
+      } catch (err) {
+        console.error("Failed to get account ID:", err);
+      }
+    };
+
+    fetchAccountId();
+  }, [tokens]);
+
+  // Fetch transaction history khi vào screen
+  useEffect(() => {
+    fetchTransactions();
+  }, [tokens]);
+
+  const fetchTransactions = async () => {
+    if (!tokens?.accessToken) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      setIsLoading(true);
-      const data = await mockApiService.getTransactions();
-      setTransactions(data);
-    } catch (error) {
-      Alert.alert("Lỗi", "Không thể tải lịch sử giao dịch");
+      setError(null);
+      const result = await apiService.getTransactionHistory(tokens.accessToken);
+      setTransactions(result);
+    } catch (err: any) {
+      console.error("Failed to fetch transactions:", err);
+      setError(err.message || "Không thể tải lịch sử giao dịch");
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  const handleRefresh = async () => {
+  const onRefresh = () => {
     setIsRefreshing(true);
-    await loadTransactions();
-    setIsRefreshing(false);
+    fetchTransactions();
   };
 
-  const handleTransactionPress = (transaction: Transaction) => {
-    Alert.alert(
-      "Chi tiết giao dịch",
-      `Mã GD: ${
-        transaction.transactionCode
-      }\nSố tiền: ${transaction.amount.toLocaleString(
-        "vi-VN"
-      )} VND\nTrạng thái: ${getStatusText(transaction.status)}`,
-      [{ text: "Đóng" }]
-    );
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatAmount = (amount: number) => {
+    return amount.toLocaleString("vi-VN") + " VND";
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "SUCCESS":
-        return "#34c759";
-      case "BLOCKED":
-        return "#ff3b30";
-      case "FAILED":
-        return "#ff9500";
+      case "COMPLETED":
+        return "#10B981"; // Green
       case "PENDING":
-        return "#007aff";
+        return "#F59E0B"; // Orange
+      case "FAILED":
+        return "#EF4444"; // Red
       default:
-        return "#888";
+        return "#6B7280"; // Gray
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "SUCCESS":
+      case "COMPLETED":
         return "Thành công";
-      case "BLOCKED":
-        return "Bị chặn";
-      case "FAILED":
-        return "Thất bại";
       case "PENDING":
         return "Đang xử lý";
+      case "FAILED":
+        return "Thất bại";
       default:
         return status;
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "SUCCESS":
-        return "checkmark.circle.fill";
-      case "BLOCKED":
-        return "exclamationmark.triangle.fill";
-      case "FAILED":
-        return "xmark.circle.fill";
-      case "PENDING":
-        return "clock.fill";
-      default:
-        return "info.circle.fill";
+  const isOutgoingTransaction = (transaction: TransactionItem) => {
+    // So sánh from_account_id với account ID hiện tại
+    if (!myAccountId) return true; // Fallback
+
+    // Nếu from_account_id trùng với account của mình → Tiền GỬI ĐI
+    // Ngược lại → Tiền NHẬN VÀO
+    return transaction.from_account_id === myAccountId;
+  };
+
+  const getTransactionLabel = (transaction: TransactionItem) => {
+    const isOutgoing = isOutgoingTransaction(transaction);
+
+    if (isOutgoing) {
+      return `Đến: ${transaction.to_account_number}`;
+    } else {
+      return `Từ: ${transaction.to_account_number}`;
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Vừa xong";
-    if (diffMins < 60) return `${diffMins} phút trước`;
-    if (diffHours < 24) return `${diffHours} giờ trước`;
-    if (diffDays < 7) return `${diffDays} ngày trước`;
-
-    return date.toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
-
-  if (!isAuthenticated) {
+  // Loading state
+  if (isLoading) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.emptyContainer}>
-          <IconSymbol name="lock.fill" size={64} color="#888" />
-          <ThemedText type="subtitle" style={styles.emptyTitle}>
-            Chưa đăng nhập
-          </ThemedText>
-          <ThemedText style={styles.emptyText}>
-            Vui lòng đăng nhập để xem lịch sử giao dịch
-          </ThemedText>
-          <Pressable
-            style={[styles.loginButton, { backgroundColor: tintColor }]}
-            onPress={() => router.push("/features/auth/login" as any)}
-          >
-            <ThemedText style={styles.loginButtonText}>Đăng nhập</ThemedText>
-          </Pressable>
-        </ThemedView>
+      <ThemedView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <ThemedText style={styles.loadingText}>Đang tải...</ThemedText>
       </ThemedView>
     );
   }
 
-  if (isLoading && !isRefreshing) {
+  // Error state
+  if (error && !isRefreshing) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.loadingContainer}>
-          <IconSymbol name="arrow.clockwise" size={48} color={tintColor} />
-          <ThemedText style={styles.loadingText}>Đang tải...</ThemedText>
-        </ThemedView>
+      <ThemedView style={styles.centerContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <Pressable style={styles.retryButton} onPress={fetchTransactions}>
+          <ThemedText style={styles.retryButtonText}>Thử lại</ThemedText>
+        </Pressable>
       </ThemedView>
     );
   }
@@ -163,92 +168,83 @@ export default function TransactionHistoryScreen() {
     <ScrollView
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
       <ThemedView style={styles.content}>
-        {/* Header */}
-        <ThemedView style={styles.headerSection}>
-          <ThemedText type="title">Lịch sử giao dịch</ThemedText>
-          <ThemedText style={styles.headerSubtext}>
-            {transactions.length} giao dịch
-          </ThemedText>
-        </ThemedView>
+        <ThemedText type="title" style={styles.title}>
+          Lịch sử giao dịch
+        </ThemedText>
 
-        {/* Transactions List */}
         {transactions.length === 0 ? (
           <ThemedView style={styles.emptyState}>
-            <IconSymbol name="tray.fill" size={64} color="#888" />
-            <ThemedText type="subtitle" style={styles.emptyTitle}>
-              Chưa có giao dịch
-            </ThemedText>
+            <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />
             <ThemedText style={styles.emptyText}>
-              Các giao dịch của bạn sẽ hiển thị ở đây
+              Chưa có giao dịch nào
+            </ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              Lịch sử giao dịch của bạn sẽ hiển thị ở đây
             </ThemedText>
           </ThemedView>
         ) : (
-          <ThemedView style={styles.transactionsList}>
-            {transactions.map((transaction) => (
-              <Pressable
-                key={transaction.id}
-                onPress={() => handleTransactionPress(transaction)}
-              >
-                <ThemedView style={styles.transactionCard}>
-                  {/* Icon & Status */}
-                  <ThemedView
-                    style={[
-                      styles.iconContainer,
-                      {
-                        backgroundColor: `${getStatusColor(
-                          transaction.status
-                        )}20`,
-                      },
-                    ]}
-                  >
-                    <IconSymbol
-                      name={getStatusIcon(transaction.status)}
-                      size={24}
-                      color={getStatusColor(transaction.status)}
+          <ThemedView style={styles.list}>
+            {transactions.map((transaction) => {
+              const isOutgoing = isOutgoingTransaction(transaction);
+
+              return (
+                <Pressable
+                  key={transaction.id}
+                  style={styles.transactionCard}
+                  onPress={() => {
+                    // TODO: Navigate to transaction detail
+                  }}
+                >
+                  {/* Icon & Type */}
+                  <View style={styles.iconContainer}>
+                    <Ionicons
+                      name={
+                        isOutgoing ? "arrow-down-circle" : "arrow-up-circle"
+                      }
+                      size={40}
+                      color={isOutgoing ? "#EF4444" : "#10B981"}
                     />
-                  </ThemedView>
+                  </View>
 
                   {/* Transaction Info */}
-                  <ThemedView style={styles.transactionInfo}>
-                    <ThemedText style={styles.transactionTitle}>
-                      Chuyển đến {transaction.toAccountNumber}
+                  <View style={styles.infoContainer}>
+                    <ThemedText style={styles.transactionType}>
+                      {isOutgoing ? "Chuyển tiền" : "Nhận tiền"}
                     </ThemedText>
-                    <ThemedText style={styles.transactionDate}>
-                      {formatDate(transaction.createdAt)}
+                    <ThemedText style={styles.accountNumber}>
+                      {getTransactionLabel(transaction)}
                     </ThemedText>
-                    {transaction.description && (
-                      <ThemedText style={styles.transactionDescription}>
-                        {transaction.description}
-                      </ThemedText>
-                    )}
-                  </ThemedView>
+                    <ThemedText style={styles.description} numberOfLines={1}>
+                      {transaction.description || "Không có mô tả"}
+                    </ThemedText>
+                    <ThemedText style={styles.date}>
+                      {formatDate(transaction.created_at)}
+                    </ThemedText>
+                  </View>
 
                   {/* Amount & Status */}
-                  <ThemedView style={styles.transactionRight}>
+                  <View style={styles.rightContainer}>
                     <ThemedText
                       style={[
-                        styles.transactionAmount,
+                        styles.amount,
                         {
-                          color:
-                            transaction.status === "SUCCESS"
-                              ? "#ff3b30"
-                              : "#888",
+                          color: isOutgoing ? "#EF4444" : "#10B981",
                         },
                       ]}
                     >
-                      -{transaction.amount.toLocaleString("vi-VN")}
+                      {isOutgoing ? "-" : "+"}
+                      {formatAmount(transaction.amount)}
                     </ThemedText>
-                    <ThemedView
+                    <View
                       style={[
                         styles.statusBadge,
                         {
-                          backgroundColor: `${getStatusColor(
-                            transaction.status
-                          )}20`,
+                          backgroundColor:
+                            getStatusColor(transaction.status) + "20",
                         },
                       ]}
                     >
@@ -260,25 +256,11 @@ export default function TransactionHistoryScreen() {
                       >
                         {getStatusText(transaction.status)}
                       </ThemedText>
-                    </ThemedView>
-                  </ThemedView>
-
-                  {/* Deepfake Warning */}
-                  {transaction.deepfakeDetected && (
-                    <ThemedView style={styles.deepfakeWarning}>
-                      <IconSymbol
-                        name="exclamationmark.shield.fill"
-                        size={16}
-                        color="#ff3b30"
-                      />
-                      <ThemedText style={styles.deepfakeText}>
-                        Deepfake phát hiện
-                      </ThemedText>
-                    </ThemedView>
-                  )}
-                </ThemedView>
-              </Pressable>
-            ))}
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
           </ThemedView>
         )}
       </ThemedView>
@@ -292,129 +274,103 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingTop: 60,
   },
-  headerSection: {
-    marginBottom: 24,
-    gap: 8,
-  },
-  headerSubtext: {
-    fontSize: 14,
-    opacity: 0.6,
-  },
-  loadingContainer: {
+  centerContainer: {
     flex: 1,
-    alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    alignItems: "center",
+    padding: 20,
   },
   loadingText: {
+    marginTop: 12,
     fontSize: 16,
-    opacity: 0.7,
   },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40,
-    gap: 16,
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#EF4444",
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  title: {
+    marginBottom: 24,
+  },
+  list: {
+    gap: 12,
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
-    gap: 16,
-  },
-  emptyTitle: {
-    textAlign: "center",
+    paddingVertical: 64,
+    gap: 8,
   },
   emptyText: {
-    textAlign: "center",
-    opacity: 0.6,
-  },
-  loginButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  loginButtonText: {
-    color: "#fff",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
+    marginTop: 16,
   },
-  transactionsList: {
-    gap: 12,
+  emptySubtext: {
+    opacity: 0.6,
+    textAlign: "center",
   },
   transactionCard: {
     flexDirection: "row",
-    alignItems: "center",
     padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    alignItems: "center",
     gap: 12,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
   },
-  transactionInfo: {
+  infoContainer: {
     flex: 1,
     gap: 4,
   },
-  transactionTitle: {
-    fontSize: 15,
+  transactionType: {
+    fontSize: 16,
     fontWeight: "600",
   },
-  transactionDate: {
-    fontSize: 12,
+  accountNumber: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  description: {
+    fontSize: 14,
     opacity: 0.6,
   },
-  transactionDescription: {
-    fontSize: 13,
-    opacity: 0.7,
-    marginTop: 2,
+  date: {
+    fontSize: 12,
+    opacity: 0.5,
   },
-  transactionRight: {
+  rightContainer: {
     alignItems: "flex-end",
-    gap: 6,
+    gap: 8,
   },
-  transactionAmount: {
+  amount: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  deepfakeWarning: {
-    position: "absolute",
-    bottom: 8,
-    right: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    borderRadius: 6,
   },
-  deepfakeText: {
-    fontSize: 10,
-    color: "#ff3b30",
+  statusText: {
+    fontSize: 12,
     fontWeight: "600",
   },
 });
