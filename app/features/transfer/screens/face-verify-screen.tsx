@@ -342,6 +342,7 @@ const styles = StyleSheet.create({
   },
   successIcon: {
     marginBottom: 8,
+    borderRadius: 60,
   },
   successTitle: {
     color: "#34c759",

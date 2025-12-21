@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  View,
 } from "react-native";
 import { router } from "expo-router";
 import { ThemedText } from "@/components/themed-text";
@@ -57,37 +58,37 @@ export default function TransferFormScreen() {
   const handleContinue = () => {
     // Validation
     if (!toAccountNumber.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập số tài khoản người nhận");
+      Alert.alert("Error", "Please enter the recipient's account number");
       return;
     }
 
     if (toAccountNumber.length < 10) {
-      Alert.alert("Lỗi", "Số tài khoản phải có ít nhất 10 số");
+      Alert.alert("Error", "The account number must be at least 10 digits");
       return;
     }
 
     if (!amount) {
-      Alert.alert("Lỗi", "Vui lòng nhập số tiền");
+      Alert.alert("Error", "Please enter an amount");
       return;
     }
 
     const amountNumber = parseInt(amount.replace(/\./g, ""));
 
     if (amountNumber < 10000) {
-      Alert.alert("Lỗi", "Số tiền tối thiểu là 10,000 VND");
+      Alert.alert("Error", "The minimum amount is 10,000 VND");
       return;
     }
 
-    // ✅ Check real balance
+    //  Check real balance
     const currentBalance =
       realBalance !== null ? realBalance : account?.balance || 0;
     if (amountNumber > currentBalance) {
-      Alert.alert("Lỗi", "Số dư không đủ");
+      Alert.alert("Error", "Insufficient balance");
       return;
     }
 
     if (!description.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập nội dung chuyển khoản");
+      Alert.alert("Error", "Please enter a transfer description");
       return;
     }
 
@@ -111,7 +112,7 @@ export default function TransferFormScreen() {
             <IconSymbol name="chevron.left" size={24} color={tintColor} />
           </Pressable>
           <ThemedText type="title" style={styles.title}>
-            Chuyển tiền
+            Transfer
           </ThemedText>
           <ThemedView style={{ width: 24 }} />
         </ThemedView>
@@ -119,7 +120,9 @@ export default function TransferFormScreen() {
         {/* Balance Card */}
         {account && (
           <ThemedView style={styles.balanceCard}>
-            <ThemedText style={styles.balanceLabel}>Số dư khả dụng</ThemedText>
+            <ThemedText style={styles.balanceLabel}>
+              Available balance
+            </ThemedText>
             <ThemedText type="subtitle" style={styles.balanceAmount}>
               {(realBalance !== null
                 ? realBalance
@@ -127,6 +130,9 @@ export default function TransferFormScreen() {
               ).toLocaleString("vi-VN")}{" "}
               VND
             </ThemedText>
+            {/* Decorative circles */}
+            <View style={styles.decorativeCircle1} />
+            <View style={styles.decorativeCircle2} />
           </ThemedView>
         )}
 
@@ -135,7 +141,7 @@ export default function TransferFormScreen() {
           {/* Account Number */}
           <ThemedView style={styles.inputGroup}>
             <ThemedText style={styles.label}>
-              Số tài khoản người nhận
+              Recipient account number
             </ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
@@ -155,7 +161,7 @@ export default function TransferFormScreen() {
 
           {/* Amount */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Số tiền</ThemedText>
+            <ThemedText style={styles.label}>Amount</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
@@ -193,7 +199,7 @@ export default function TransferFormScreen() {
 
           {/* Description */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Nội dung chuyển khoản</ThemedText>
+            <ThemedText style={styles.label}>Transfer description</ThemedText>
             <ThemedView
               style={[
                 styles.inputContainer,
@@ -231,7 +237,7 @@ export default function TransferFormScreen() {
         <ThemedView style={styles.infoNote}>
           <IconSymbol name="info.circle.fill" size={20} color={tintColor} />
           <ThemedText style={styles.infoText}>
-            Bước tiếp theo: Xác thực khuôn mặt để bảo mật giao dịch
+            Next step: Face authentication to secure the transaction
           </ThemedText>
         </ThemedView>
       </ThemedView>
@@ -261,21 +267,29 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   balanceCard: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: "rgba(52, 199, 89, 0.1)",
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: "#0a7ea4",
     marginBottom: 24,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   balanceLabel: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 4,
+    fontSize: 13,
+    color: "#ffffff80",
+    fontWeight: "500",
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
   balanceAmount: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#34c759",
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: -1,
   },
   form: {
     gap: 20,
@@ -371,5 +385,23 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     lineHeight: 20,
     paddingTop: 2,
+  },
+  decorativeCircle1: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    top: -50,
+    right: -50,
+  },
+  decorativeCircle2: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    bottom: -30,
+    left: -30,
   },
 });

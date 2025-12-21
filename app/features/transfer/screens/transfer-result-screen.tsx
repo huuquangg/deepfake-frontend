@@ -25,8 +25,7 @@ export default function TransferResultScreen() {
   };
 
   const handleViewHistory = () => {
-    router.replace("/(tabs)");
-    // TODO: Navigate to history tab when implemented
+    router.push("/features/history/screens/transaction-history-screen");
   };
 
   return (
@@ -49,10 +48,10 @@ export default function TransferResultScreen() {
             {/* Success Message */}
             <ThemedView style={styles.messageSection}>
               <ThemedText type="title" style={styles.successTitle}>
-                Chuyển tiền thành công!
+                Transfer successful!
               </ThemedText>
               <ThemedText style={styles.messageText}>
-                {message || "Giao dịch của bạn đã được thực hiện thành công"}
+                {message || "Your transaction has been completed successfully."}
               </ThemedText>
             </ThemedView>
 
@@ -60,7 +59,7 @@ export default function TransferResultScreen() {
             <ThemedView style={styles.detailsCard}>
               <ThemedView style={styles.amountSection}>
                 <ThemedText style={styles.amountLabel}>
-                  Số tiền đã chuyển
+                  Transferred amount
                 </ThemedText>
                 <ThemedText style={[styles.amountValue, styles.successAmount]}>
                   {amount.toLocaleString("vi-VN")} VND
@@ -72,7 +71,7 @@ export default function TransferResultScreen() {
               <ThemedView style={styles.detailsList}>
                 <ThemedView style={styles.detailRow}>
                   <ThemedText style={styles.detailLabel}>
-                    Mã giao dịch
+                    Transaction ID
                   </ThemedText>
                   <ThemedText style={styles.detailValue}>
                     {transactionCode}
@@ -80,14 +79,14 @@ export default function TransferResultScreen() {
                 </ThemedView>
 
                 <ThemedView style={styles.detailRow}>
-                  <ThemedText style={styles.detailLabel}>Người nhận</ThemedText>
+                  <ThemedText style={styles.detailLabel}>Recipient</ThemedText>
                   <ThemedText style={styles.detailValue}>
                     {toAccountNumber}
                   </ThemedText>
                 </ThemedView>
 
                 <ThemedView style={styles.detailRow}>
-                  <ThemedText style={styles.detailLabel}>Thời gian</ThemedText>
+                  <ThemedText style={styles.detailLabel}>Time</ThemedText>
                   <ThemedText style={styles.detailValue}>
                     {new Date().toLocaleString("vi-VN")}
                   </ThemedText>
@@ -103,7 +102,7 @@ export default function TransferResultScreen() {
                 color="#34c759"
               />
               <ThemedText style={styles.securityText}>
-                Đã xác thực khuôn mặt - Giao dịch an toàn
+                Face authentication verified – Secure transaction
               </ThemedText>
             </ThemedView>
           </>
@@ -120,7 +119,7 @@ export default function TransferResultScreen() {
                       : "xmark.circle.fill"
                   }
                   size={80}
-                  color="#ff3b30"
+                  color="#EF4444"
                 />
               </ThemedView>
             </ThemedView>
@@ -129,18 +128,18 @@ export default function TransferResultScreen() {
             <ThemedView style={styles.messageSection}>
               <ThemedText type="title" style={styles.errorTitle}>
                 {isDeepfakeDetected
-                  ? "🚨 Giao dịch bị chặn!"
-                  : "Giao dịch thất bại"}
+                  ? "Transaction blocked!"
+                  : "Transaction failed"}
               </ThemedText>
               <ThemedText style={styles.messageText}>
-                {error || "Có lỗi xảy ra trong quá trình xử lý"}
+                {error || "An error occurred during processing."}
               </ThemedText>
             </ThemedView>
 
             {/* Failed Transaction Info */}
             <ThemedView style={[styles.detailsCard, styles.errorCard]}>
               <ThemedView style={styles.amountSection}>
-                <ThemedText style={styles.amountLabel}>Số tiền</ThemedText>
+                <ThemedText style={styles.amountLabel}>Amount</ThemedText>
                 <ThemedText style={[styles.amountValue, styles.errorAmount]}>
                   {amount.toLocaleString("vi-VN")} VND
                 </ThemedText>
@@ -150,21 +149,21 @@ export default function TransferResultScreen() {
 
               <ThemedView style={styles.detailsList}>
                 <ThemedView style={styles.detailRow}>
-                  <ThemedText style={styles.detailLabel}>Người nhận</ThemedText>
+                  <ThemedText style={styles.detailLabel}>Recipient</ThemedText>
                   <ThemedText style={styles.detailValue}>
                     {toAccountNumber}
                   </ThemedText>
                 </ThemedView>
 
                 <ThemedView style={styles.detailRow}>
-                  <ThemedText style={styles.detailLabel}>Trạng thái</ThemedText>
+                  <ThemedText style={styles.detailLabel}>Status</ThemedText>
                   <ThemedText style={[styles.detailValue, styles.blockedText]}>
-                    {isDeepfakeDetected ? "Bị chặn" : "Thất bại"}
+                    {isDeepfakeDetected ? "Blocked" : "Failed"}
                   </ThemedText>
                 </ThemedView>
 
                 <ThemedView style={styles.detailRow}>
-                  <ThemedText style={styles.detailLabel}>Thời gian</ThemedText>
+                  <ThemedText style={styles.detailLabel}>Time</ThemedText>
                   <ThemedText style={styles.detailValue}>
                     {new Date().toLocaleString("vi-VN")}
                   </ThemedText>
@@ -178,19 +177,19 @@ export default function TransferResultScreen() {
                 <IconSymbol
                   name="exclamationmark.shield.fill"
                   size={32}
-                  color="#ff3b30"
+                  color="#EF4444"
                 />
                 <ThemedView style={styles.alertContent}>
                   <ThemedText style={styles.alertTitle}>
                     Phát hiện Deepfake!
                   </ThemedText>
                   <ThemedText style={styles.alertText}>
-                    Hệ thống đã phát hiện khuôn mặt giả mạo. Giao dịch đã bị
-                    chặn để bảo vệ tài khoản của bạn.
+                    The system detected a fake face. The transaction has been
+                    blocked to protect your account.
                   </ThemedText>
                   <ThemedText style={styles.alertSubtext}>
-                    📍 Thông tin vị trí và chi tiết đã được ghi lại trong mục
-                    Cảnh báo.
+                    Location information and details have been recorded in the
+                    Alerts section.
                   </ThemedText>
                 </ThemedView>
               </ThemedView>
@@ -198,22 +197,24 @@ export default function TransferResultScreen() {
 
             {/* What to do */}
             <ThemedView style={styles.helpCard}>
-              <ThemedText style={styles.helpTitle}>Bạn cần làm gì?</ThemedText>
+              <ThemedText style={styles.helpTitle}>
+                What should you do?
+              </ThemedText>
               <ThemedView style={styles.helpList}>
                 <ThemedView style={styles.helpItem}>
                   <ThemedText style={styles.helpBullet}>•</ThemedText>
                   <ThemedText style={styles.helpText}>
                     {isDeepfakeDetected
-                      ? "Liên hệ hotline nếu không phải bạn thực hiện"
-                      : "Kiểm tra lại thông tin và thử lại"}
+                      ? "Contact the hotline if this was not you"
+                      : "Check the information and try again"}
                   </ThemedText>
                 </ThemedView>
                 <ThemedView style={styles.helpItem}>
                   <ThemedText style={styles.helpBullet}>•</ThemedText>
                   <ThemedText style={styles.helpText}>
                     {isDeepfakeDetected
-                      ? "Đổi mật khẩu ngay nếu nghi ngờ bị xâm nhập"
-                      : "Kiểm tra số dư tài khoản"}
+                      ? "Change your password immediately if you suspect a breach"
+                      : "Check your account balance"}
                   </ThemedText>
                 </ThemedView>
               </ThemedView>
@@ -228,7 +229,7 @@ export default function TransferResultScreen() {
             onPress={handleGoHome}
           >
             <IconSymbol name="house.fill" size={20} color="#fff" />
-            <ThemedText style={styles.homeButtonText}>Về trang chủ</ThemedText>
+            <ThemedText style={styles.homeButtonText}> Go to Home</ThemedText>
           </Pressable>
           {isSuccess && (
             <Pressable
@@ -239,7 +240,7 @@ export default function TransferResultScreen() {
               <ThemedText
                 style={[styles.historyButtonText, { color: tintColor }]}
               >
-                Lịch sử GD
+                Transaction History
               </ThemedText>
             </Pressable>
           )}
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(52, 199, 89, 0.1)",
   },
   errorCircle: {
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
   },
   messageSection: {
     alignItems: "center",
@@ -283,53 +284,60 @@ const styles = StyleSheet.create({
   successTitle: {
     color: "#34c759",
     textAlign: "center",
+    fontWeight: "700",
   },
   errorTitle: {
-    color: "#ff3b30",
+    color: "#EF4444",
     textAlign: "center",
+    fontWeight: "700",
   },
   messageText: {
     textAlign: "center",
-    opacity: 0.7,
+    color: "#6b7280",
     lineHeight: 22,
     paddingHorizontal: 20,
+    fontSize: 15,
   },
   detailsCard: {
     backgroundColor: "#fff",
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 24,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
   errorCard: {
-    backgroundColor: "rgba(255, 59, 48, 0.05)",
+    backgroundColor: "rgba(239, 68, 68, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.1)",
   },
   amountSection: {
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
   amountLabel: {
     fontSize: 14,
-    opacity: 0.7,
+    color: "#6b7280",
+    fontWeight: "500",
     marginBottom: 8,
   },
   amountValue: {
-    fontSize: 32,
-    fontWeight: "bold",
+    fontSize: 30,
+    fontWeight: "800",
+    letterSpacing: -1,
   },
   successAmount: {
     color: "#34c759",
   },
   errorAmount: {
-    color: "#ff3b30",
+    color: "#EF4444",
   },
   divider: {
     height: 1,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#E5E5EA",
     marginVertical: 16,
   },
   detailsList: {
@@ -337,46 +345,55 @@ const styles = StyleSheet.create({
   },
   detailRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
+    gap: 12,
   },
   detailLabel: {
     fontSize: 14,
-    opacity: 0.7,
+    color: "#6b7280",
+    fontWeight: "500",
+    width: 100,
+    flexShrink: 0,
   },
   detailValue: {
+    flex: 1,
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
+    color: "#1f2937",
     textAlign: "right",
+    lineHeight: 20,
   },
   blockedText: {
-    color: "#ff3b30",
+    color: "#EF4444",
+    fontWeight: "700",
   },
   securityBadge: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 12,
     backgroundColor: "rgba(52, 199, 89, 0.1)",
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "rgba(52, 199, 89, 0.2)",
   },
   securityText: {
-    flex: 1,
     fontSize: 14,
     color: "#34c759",
     fontWeight: "600",
+    textAlign: "center",
   },
   deepfakeAlert: {
     flexDirection: "row",
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     gap: 16,
     borderWidth: 2,
-    borderColor: "rgba(255, 59, 48, 0.3)",
+    borderColor: "rgba(239, 68, 68, 0.2)",
   },
   alertContent: {
     flex: 1,
@@ -384,28 +401,31 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#ff3b30",
+    fontWeight: "700",
+    color: "#EF4444",
   },
   alertText: {
     fontSize: 14,
-    opacity: 0.8,
+    color: "#6b7280",
     lineHeight: 20,
   },
   alertSubtext: {
     fontSize: 12,
-    opacity: 0.7,
+    color: "#9ca3af",
     marginTop: 4,
   },
   helpCard: {
-    backgroundColor: "rgba(255, 149, 0, 0.1)",
+    backgroundColor: "rgba(251, 191, 36, 0.1)",
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.2)",
   },
   helpTitle: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#1f2937",
     marginBottom: 12,
   },
   helpList: {
@@ -414,38 +434,45 @@ const styles = StyleSheet.create({
   helpItem: {
     flexDirection: "row",
     gap: 8,
+    alignItems: "flex-start",
   },
   helpBullet: {
     fontSize: 16,
     fontWeight: "bold",
+    color: "#d97706",
   },
   helpText: {
     flex: 1,
     fontSize: 14,
-    opacity: 0.8,
+    color: "#374151",
     lineHeight: 20,
   },
   actionButtons: {
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 12,
     paddingBottom: 20,
   },
   homeButton: {
-    flex: 1, // Cả 2 nút bằng nhau
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     height: 56,
     borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   homeButtonText: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
   },
   historyButton: {
-    flex: 1, // Cả 2 nút bằng nhau
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -453,9 +480,10 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 12,
     borderWidth: 2,
+    backgroundColor: "#fff",
   },
   historyButtonText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });

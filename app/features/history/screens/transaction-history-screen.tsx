@@ -1,4 +1,4 @@
-// Transaction History Screen - Hiển thị lịch sử giao dịch
+// Transaction History Screen - Modern Banking UI
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useAuth } from "@/app/contexts/auth-context";
@@ -11,15 +11,18 @@ import {
   View,
   ActivityIndicator,
   Pressable,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+
+const { width } = Dimensions.get("window");
 
 // Transaction item từ backend
 interface TransactionItem {
   id: number;
   transaction_id: string;
   from_account_id: number;
-  to_account_id?: number; // ⭐ THÊM để phân biệt GỬI/NHẬN
+  to_account_id?: number;
   to_account_number: string;
   amount: number;
   description: string;
@@ -28,34 +31,51 @@ interface TransactionItem {
   completed_at?: string;
 }
 
+type FilterType = "ALL" | "INCOMING" | "OUTGOING";
+
 export default function TransactionHistoryScreen() {
   const { tokens, account } = useAuth();
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<
+    TransactionItem[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [myAccountId, setMyAccountId] = useState<number | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("ALL");
+  const [balance, setBalance] = useState<number>(0);
+  const [accountNumber, setAccountNumber] = useState<string>("");
+  const [accountName, setAccountName] = useState<string>("");
 
-  // Lấy account ID của user hiện tại
+  // Lấy account ID và balance của user hiện tại
   useEffect(() => {
-    const fetchAccountId = async () => {
+    const fetchAccountInfo = async () => {
       if (!tokens?.accessToken) return;
 
       try {
         const accountInfo = await apiService.getAccountInfo(tokens.accessToken);
         setMyAccountId(parseInt(accountInfo.id));
+        setBalance(accountInfo.balance || 0);
+        setAccountNumber(accountInfo.accountNumber || "");
+        setAccountName(accountInfo.accountName || "");
       } catch (err) {
-        console.error("Failed to get account ID:", err);
+        console.error("Failed to get account info:", err);
       }
     };
 
-    fetchAccountId();
+    fetchAccountInfo();
   }, [tokens]);
 
-  // Fetch transaction history khi vào screen
+  // Fetch transaction history
   useEffect(() => {
     fetchTransactions();
   }, [tokens]);
+
+  // Filter transactions when filter changes
+  useEffect(() => {
+    filterTransactions();
+  }, [activeFilter, transactions, myAccountId]);
 
   const fetchTransactions = async () => {
     if (!tokens?.accessToken) {
@@ -76,6 +96,20 @@ export default function TransactionHistoryScreen() {
     }
   };
 
+  const filterTransactions = () => {
+    if (activeFilter === "ALL") {
+      setFilteredTransactions(transactions);
+    } else if (activeFilter === "INCOMING") {
+      setFilteredTransactions(
+        transactions.filter((t) => !isOutgoingTransaction(t))
+      );
+    } else {
+      setFilteredTransactions(
+        transactions.filter((t) => isOutgoingTransaction(t))
+      );
+    }
+  };
+
   const onRefresh = () => {
     setIsRefreshing(true);
     fetchTransactions();
@@ -87,58 +121,29 @@ export default function TransactionHistoryScreen() {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   };
 
   const formatAmount = (amount: number) => {
-    return amount.toLocaleString("vi-VN") + " VND";
+    return amount.toLocaleString("vi-VN");
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "COMPLETED":
-        return "#10B981"; // Green
+        return "#10B981";
       case "PENDING":
-        return "#F59E0B"; // Orange
+        return "#F59E0B";
       case "FAILED":
-        return "#EF4444"; // Red
+        return "#EF4444";
       default:
-        return "#6B7280"; // Gray
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "COMPLETED":
-        return "Thành công";
-      case "PENDING":
-        return "Đang xử lý";
-      case "FAILED":
-        return "Thất bại";
-      default:
-        return status;
+        return "#6B7280";
     }
   };
 
   const isOutgoingTransaction = (transaction: TransactionItem) => {
-    // So sánh from_account_id với account ID hiện tại
-    if (!myAccountId) return true; // Fallback
-
-    // Nếu from_account_id trùng với account của mình → Tiền GỬI ĐI
-    // Ngược lại → Tiền NHẬN VÀO
+    if (!myAccountId) return true;
     return transaction.from_account_id === myAccountId;
-  };
-
-  const getTransactionLabel = (transaction: TransactionItem) => {
-    const isOutgoing = isOutgoingTransaction(transaction);
-
-    if (isOutgoing) {
-      return `Đến: ${transaction.to_account_number}`;
-    } else {
-      return `Từ: ${transaction.to_account_number}`;
-    }
   };
 
   // Loading state
@@ -170,99 +175,178 @@ export default function TransactionHistoryScreen() {
       refreshControl={
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
+      showsVerticalScrollIndicator={false}
     >
       <ThemedView style={styles.content}>
-        <ThemedText type="title" style={styles.title}>
-          Lịch sử giao dịch
-        </ThemedText>
-
-        {transactions.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />
-            <ThemedText style={styles.emptyText}>
-              Chưa có giao dịch nào
+        {/* Account Card */}
+        <View style={styles.accountCard}>
+          <View style={styles.cardHeader}>
+            <ThemedText style={styles.cardTitle}>
+              {accountName || "TÀI KHOẢN NGUỒN"}
             </ThemedText>
-            <ThemedText style={styles.emptySubtext}>
-              Lịch sử giao dịch của bạn sẽ hiển thị ở đây
-            </ThemedText>
-          </ThemedView>
-        ) : (
-          <ThemedView style={styles.list}>
-            {transactions.map((transaction) => {
-              const isOutgoing = isOutgoingTransaction(transaction);
+            <Ionicons name="chevron-forward" size={24} color="#fff" />
+          </View>
 
-              return (
+          <View style={styles.cardBody}>
+            <View style={styles.accountNumberRow}>
+              <ThemedText style={styles.accountLabel}>
+                Account number
+              </ThemedText>
+              <View style={styles.accountNumberWithCopy}>
+                <ThemedText style={styles.accountNumberInline}>
+                  {accountNumber || "0000000000"}
+                </ThemedText>
                 <Pressable
-                  key={transaction.id}
-                  style={styles.transactionCard}
                   onPress={() => {
-                    // TODO: Navigate to transaction detail
+                    /* TODO: Copy to clipboard */
                   }}
                 >
-                  {/* Icon & Type */}
-                  <View style={styles.iconContainer}>
-                    <Ionicons
-                      name={
-                        isOutgoing ? "arrow-down-circle" : "arrow-up-circle"
-                      }
-                      size={40}
-                      color={isOutgoing ? "#EF4444" : "#10B981"}
-                    />
-                  </View>
+                  <Ionicons name="copy-outline" size={18} color="#ffffff80" />
+                </Pressable>
+              </View>
+            </View>
 
-                  {/* Transaction Info */}
-                  <View style={styles.infoContainer}>
-                    <ThemedText style={styles.transactionType}>
-                      {isOutgoing ? "Chuyển tiền" : "Nhận tiền"}
-                    </ThemedText>
-                    <ThemedText style={styles.accountNumber}>
-                      {getTransactionLabel(transaction)}
-                    </ThemedText>
-                    <ThemedText style={styles.description} numberOfLines={1}>
-                      {transaction.description || "Không có mô tả"}
-                    </ThemedText>
-                    <ThemedText style={styles.date}>
-                      {formatDate(transaction.created_at)}
-                    </ThemedText>
-                  </View>
+            <View style={styles.balanceRow}>
+              <ThemedText style={styles.balanceLabel}>Balance</ThemedText>
+              <ThemedText style={styles.balanceAmount}>
+                {formatAmount(balance)}{" "}
+                <ThemedText style={styles.currency}>VND</ThemedText>
+              </ThemedText>
+            </View>
+          </View>
 
-                  {/* Amount & Status */}
-                  <View style={styles.rightContainer}>
-                    <ThemedText
-                      style={[
-                        styles.amount,
-                        {
-                          color: isOutgoing ? "#EF4444" : "#10B981",
-                        },
-                      ]}
-                    >
-                      {isOutgoing ? "-" : "+"}
-                      {formatAmount(transaction.amount)}
-                    </ThemedText>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        {
-                          backgroundColor:
-                            getStatusColor(transaction.status) + "20",
-                        },
-                      ]}
-                    >
+          {/* Decorative circles */}
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
+        </View>
+
+        {/* Transaction History Section */}
+        <View style={styles.historySection}>
+          <View style={styles.historyHeader}>
+            <ThemedText type="subtitle" style={styles.historyTitle}>
+              Transaction history
+            </ThemedText>
+            {/* <Pressable>
+              <ThemedText style={styles.searchMore}>Search more</ThemedText>
+            </Pressable> */}
+          </View>
+
+          {/* Filter Tabs */}
+          <View style={styles.filterTabs}>
+            <Pressable
+              style={[
+                styles.filterTab,
+                activeFilter === "ALL" && styles.filterTabActive,
+              ]}
+              onPress={() => setActiveFilter("ALL")}
+            >
+              <ThemedText
+                style={[
+                  styles.filterText,
+                  activeFilter === "ALL" && styles.filterTextActive,
+                ]}
+              >
+                All
+              </ThemedText>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.filterTab,
+                activeFilter === "INCOMING" && styles.filterTabActive,
+              ]}
+              onPress={() => setActiveFilter("INCOMING")}
+            >
+              <ThemedText
+                style={[
+                  styles.filterText,
+                  activeFilter === "INCOMING" && styles.filterTextActive,
+                ]}
+              >
+                Incoming
+              </ThemedText>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.filterTab,
+                activeFilter === "OUTGOING" && styles.filterTabActive,
+              ]}
+              onPress={() => setActiveFilter("OUTGOING")}
+            >
+              <ThemedText
+                style={[
+                  styles.filterText,
+                  activeFilter === "OUTGOING" && styles.filterTextActive,
+                ]}
+              >
+                Outgoing
+              </ThemedText>
+            </Pressable>
+          </View>
+
+          {/* Transaction List */}
+          {filteredTransactions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="receipt-outline" size={48} color="#9CA3AF" />
+              <ThemedText style={styles.emptyText}>
+                Chưa có giao dịch nào
+              </ThemedText>
+            </View>
+          ) : (
+            <View style={styles.transactionList}>
+              {filteredTransactions.map((transaction) => {
+                const isOutgoing = isOutgoingTransaction(transaction);
+                const date = formatDate(transaction.created_at);
+
+                return (
+                  <Pressable
+                    key={transaction.id}
+                    style={styles.transactionItem}
+                    onPress={() => {
+                      /* TODO: Navigate to detail */
+                    }}
+                  >
+                    <View style={styles.transactionLeft}>
+                      <ThemedText style={styles.transactionDate}>
+                        {date}
+                      </ThemedText>
                       <ThemedText
-                        style={[
-                          styles.statusText,
-                          { color: getStatusColor(transaction.status) },
-                        ]}
+                        style={styles.transactionDescription}
+                        numberOfLines={2}
                       >
-                        {getStatusText(transaction.status)}
+                        {transaction.description || "Không có mô tả"}
+                      </ThemedText>
+                      <ThemedText
+                        style={styles.transactionId}
+                        numberOfLines={1}
+                      >
+                        ID: {transaction.transaction_id}
                       </ThemedText>
                     </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ThemedView>
-        )}
+
+                    <View style={styles.transactionRight}>
+                      <ThemedText
+                        style={[
+                          styles.transactionAmount,
+                          { color: isOutgoing ? "#EF4444" : "#34c759" },
+                        ]}
+                      >
+                        {isOutgoing ? "-" : "+"}
+                        {formatAmount(transaction.amount)} VND
+                      </ThemedText>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color="#9CA3AF"
+                      />
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
       </ThemedView>
     </ScrollView>
   );
@@ -273,7 +357,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    paddingBottom: 40,
   },
   centerContainer: {
     flex: 1,
@@ -303,74 +387,216 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  title: {
+
+  // Account Card Styles
+  accountCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 24,
+    borderRadius: 20,
+    padding: 24,
+    minHeight: 200,
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "#0a7ea4",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 24,
   },
-  list: {
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  cardBody: {
     gap: 12,
   },
-  emptyState: {
+  accountNumberRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 64,
+    marginBottom: 4,
+  },
+  accountLabel: {
+    fontSize: 13,
+    color: "#ffffff80",
+    fontWeight: "500",
+  },
+  accountNumberWithCopy: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
-  emptyText: {
+  accountNumberInline: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 1,
+  },
+  accountNumber: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  balanceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+  balanceLabel: {
+    fontSize: 13,
+    color: "#ffffff80",
+    fontWeight: "500",
+  },
+  balanceAmount: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: -1,
+  },
+  currency: {
     fontSize: 18,
     fontWeight: "600",
-    marginTop: 16,
+    opacity: 0.9,
+    color: "#fff",
   },
-  emptySubtext: {
-    opacity: 0.6,
-    textAlign: "center",
+  decorativeCircle1: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    top: -50,
+    right: -50,
   },
-  transactionCard: {
+  decorativeCircle2: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    bottom: -30,
+    left: -30,
+  },
+
+  // History Section
+  historySection: {
+    paddingHorizontal: 20,
+  },
+  historyHeader: {
     flexDirection: "row",
-    padding: 16,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
+    marginBottom: 16,
   },
-  iconContainer: {
+  historyTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  searchMore: {
+    fontSize: 14,
+    color: "#3b82f6",
+    fontWeight: "600",
+  },
+
+  // Filter Tabs
+  filterTabs: {
+    flexDirection: "row",
+    backgroundColor: "#f3f4f6",
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 20,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
   },
-  infoContainer: {
+  filterTabActive: {
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6b7280",
+  },
+  filterTextActive: {
+    color: "#0a7ea4",
+  },
+
+  // Transaction List
+  transactionList: {
+    gap: 0,
+  },
+  transactionItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  transactionLeft: {
     flex: 1,
     gap: 4,
   },
-  transactionType: {
-    fontSize: 16,
-    fontWeight: "600",
+  transactionDate: {
+    fontSize: 13,
+    color: "#6b7280",
+    fontWeight: "500",
   },
-  accountNumber: {
+  transactionDescription: {
     fontSize: 14,
-    opacity: 0.7,
+    fontWeight: "500",
+    lineHeight: 20,
+    paddingRight: 12,
   },
-  description: {
-    fontSize: 14,
-    opacity: 0.6,
-  },
-  date: {
+  transactionId: {
     fontSize: 12,
-    opacity: 0.5,
+    color: "#9CA3AF",
+    fontWeight: "500",
+    fontFamily: "monospace",
   },
-  rightContainer: {
-    alignItems: "flex-end",
+  transactionRight: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
-  amount: {
+  transactionAmount: {
     fontSize: 16,
     fontWeight: "700",
+    textAlign: "right",
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+
+  // Empty State
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 48,
+    gap: 12,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "600",
+  emptyText: {
+    fontSize: 16,
+    color: "#9CA3AF",
+    fontWeight: "500",
   },
 });

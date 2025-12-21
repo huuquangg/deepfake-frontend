@@ -139,7 +139,7 @@ export default function TransferConfirmScreen() {
         </ThemedView>
 
         {/* Source Account */}
-        {account && (
+        {/* {account && (
           <ThemedView style={styles.sourceCard}>
             <ThemedView style={styles.sourceHeader}>
               <IconSymbol name="creditcard.fill" size={24} color={tintColor} />
@@ -157,7 +157,7 @@ export default function TransferConfirmScreen() {
               </ThemedText>
             </ThemedView>
           </ThemedView>
-        )}
+        )} */}
 
         {/* Security Badge */}
         <ThemedView style={styles.securityBadge}>
@@ -206,11 +206,6 @@ export default function TransferConfirmScreen() {
                 <ThemedText style={styles.confirmButtonText}>
                   Xác nhận chuyển tiền
                 </ThemedText>
-                <IconSymbol
-                  name="checkmark.circle.fill"
-                  size={24}
-                  color="#fff"
-                />
               </>
             )}
           </Pressable>
@@ -280,45 +275,67 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#0a7ea4",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#E5E5E5",
-    marginVertical: 16,
-  },
+  // divider: {
+  //   height: 1,
+  //   backgroundColor: "#E5E5E5",
+  //   marginVertical: 16,
+  // },
   detailsSection: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
     gap: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    paddingVertical: 4,
   },
   detailLabel: {
     fontSize: 14,
-    opacity: 0.7,
+    color: "#6b7280",
+    fontWeight: "500",
     flex: 1,
+    flexShrink: 0,
+    minWidth: 100,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
+    color: "#1f2937",
     flex: 2,
     textAlign: "right",
+    lineHeight: 20,
   },
   descriptionText: {
     fontWeight: "400",
+    color: "#374151",
   },
   freeText: {
-    color: "#34c759",
+    color: "#10B981",
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E5E5EA",
+    marginVertical: 8,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#1f2937",
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#0a7ea4",
+    letterSpacing: -0.5,
   },
   sourceCard: {
     backgroundColor: "rgba(10, 126, 164, 0.1)",
