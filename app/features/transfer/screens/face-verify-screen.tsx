@@ -58,7 +58,7 @@ export default function FaceVerifyScreen() {
             <IconSymbol name="chevron.left" size={24} color={tintColor} />
           </Pressable>
           <ThemedText type="title" style={styles.title}>
-            Xác thực khuôn mặt
+            Face Verification
           </ThemedText>
           <ThemedView style={{ width: 24 }} />
         </ThemedView>
@@ -75,19 +75,19 @@ export default function FaceVerifyScreen() {
                   color={tintColor}
                 />
                 <ThemedText type="subtitle" style={styles.instructionTitle}>
-                  Xác thực danh tính
+                  Identity Verification
                 </ThemedText>
                 <ThemedText style={styles.instructionText}>
-                  Để đảm bảo an toàn cho giao dịch, vui lòng xác thực khuôn mặt
-                  của bạn
+                  To ensure transaction security, please verify your face.
                 </ThemedText>
               </ThemedView>
 
               {/* Instructions */}
               <ThemedView style={styles.tipsContainer}>
                 <ThemedText style={styles.tipsTitle}>
-                  Lưu ý khi xác thực:
+                  Verification tips:
                 </ThemedText>
+
                 <ThemedView style={styles.tipItem}>
                   <IconSymbol
                     name="checkmark.circle.fill"
@@ -95,9 +95,10 @@ export default function FaceVerifyScreen() {
                     color="#34c759"
                   />
                   <ThemedText style={styles.tipText}>
-                    Đảm bảo khuôn mặt rõ ràng, không bị che khuất
+                    Make sure your face is clearly visible and unobstructed
                   </ThemedText>
                 </ThemedView>
+
                 <ThemedView style={styles.tipItem}>
                   <IconSymbol
                     name="checkmark.circle.fill"
@@ -105,9 +106,10 @@ export default function FaceVerifyScreen() {
                     color="#34c759"
                   />
                   <ThemedText style={styles.tipText}>
-                    Xác thực trong điều kiện ánh sáng tốt
+                    Perform verification in good lighting conditions
                   </ThemedText>
                 </ThemedView>
+
                 <ThemedView style={styles.tipItem}>
                   <IconSymbol
                     name="checkmark.circle.fill"
@@ -115,7 +117,7 @@ export default function FaceVerifyScreen() {
                     color="#34c759"
                   />
                   <ThemedText style={styles.tipText}>
-                    Nhìn thẳng vào màn hình
+                    Look straight at the screen
                   </ThemedText>
                 </ThemedView>
               </ThemedView>
@@ -124,7 +126,8 @@ export default function FaceVerifyScreen() {
               <ThemedView style={styles.mockNote}>
                 <IconSymbol name="info.circle.fill" size={20} color="#ff9500" />
                 <ThemedText style={styles.mockText}>
-                  💡 Demo Mode: Nhấn nút bên dưới để giả lập xác thực khuôn mặt
+                  💡 Demo Mode: Press the button below to simulate face
+                  verification
                 </ThemedText>
               </ThemedView>
 
@@ -142,14 +145,14 @@ export default function FaceVerifyScreen() {
                   <>
                     <IconSymbol name="hourglass" size={24} color="#fff" />
                     <ThemedText style={styles.captureButtonText}>
-                      Đang xác thực...
+                      Verifying...
                     </ThemedText>
                   </>
                 ) : (
                   <>
                     <IconSymbol name="camera.fill" size={24} color="#fff" />
                     <ThemedText style={styles.captureButtonText}>
-                      Xác thực khuôn mặt
+                      Verify Face
                     </ThemedText>
                   </>
                 )}
@@ -167,11 +170,11 @@ export default function FaceVerifyScreen() {
                   />
                 </ThemedView>
                 <ThemedText type="title" style={styles.successTitle}>
-                  Xác thực thành công!
+                  Verification Successful!
                 </ThemedText>
                 <ThemedText style={styles.successText}>
-                  Khuôn mặt của bạn đã được xác thực. Hệ thống không phát hiện
-                  dấu hiệu deepfake.
+                  Your face has been successfully verified. No deepfake signs
+                  were detected.
                 </ThemedText>
               </ThemedView>
 
@@ -183,13 +186,14 @@ export default function FaceVerifyScreen() {
                     size={32}
                     color="#34c759"
                   />
-                  <ThemedText style={styles.statLabel}>Độ tin cậy</ThemedText>
+                  <ThemedText style={styles.statLabel}>Confidence</ThemedText>
                   <ThemedText style={styles.statValue}>98%</ThemedText>
                 </ThemedView>
+
                 <ThemedView style={styles.statItem}>
                   <IconSymbol name="shield.fill" size={32} color="#34c759" />
-                  <ThemedText style={styles.statLabel}>Bảo mật</ThemedText>
-                  <ThemedText style={styles.statValue}>Cao</ThemedText>
+                  <ThemedText style={styles.statLabel}>Security</ThemedText>
+                  <ThemedText style={styles.statValue}>High</ThemedText>
                 </ThemedView>
               </ThemedView>
 
@@ -207,7 +211,7 @@ export default function FaceVerifyScreen() {
                   <ThemedText
                     style={[styles.retakeButtonText, { color: tintColor }]}
                   >
-                    Thử lại
+                    Try Again
                   </ThemedText>
                 </Pressable>
 
@@ -219,7 +223,7 @@ export default function FaceVerifyScreen() {
                   onPress={handleContinue}
                 >
                   <ThemedText style={styles.continueButtonText}>
-                    Tiếp tục
+                    Continue
                   </ThemedText>
                   <IconSymbol name="arrow.right" size={20} color="#fff" />
                 </Pressable>
@@ -232,7 +236,7 @@ export default function FaceVerifyScreen() {
         <ThemedView style={styles.securityNote}>
           <IconSymbol name="lock.shield.fill" size={20} color={tintColor} />
           <ThemedText style={styles.securityText}>
-            Dữ liệu sinh trắc học được mã hóa và bảo mật
+            Biometric data is encrypted and securely protected
           </ThemedText>
         </ThemedView>
       </ThemedView>
@@ -342,6 +346,7 @@ const styles = StyleSheet.create({
   },
   successIcon: {
     marginBottom: 8,
+    borderRadius: 60,
   },
   successTitle: {
     color: "#34c759",

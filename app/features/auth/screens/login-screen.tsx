@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { useAuth } from "@/app/contexts/auth-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -14,6 +15,7 @@ import {
   StyleSheet,
   TextInput,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -29,62 +31,64 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     // Validation
     if (!username.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập tên đăng nhập");
+      Alert.alert("Error", "Please enter username");
       return;
     }
     if (!password.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập mật khẩu");
+      Alert.alert("Error", "Please enter password");
       return;
     }
 
-    // Log attempt (do not log password)
-    console.log('[Auth] Login attempt', { username: username.trim() });
-
+    console.log("[Auth] Login attempt", { username: username.trim() });
     setIsLoading(true);
 
     try {
       await login({ username: username.trim(), password });
 
-      // Login thành công - AuthContext sẽ tự động redirect
-      console.log('[Auth] Login successful for', username.trim());
-      Alert.alert("Thành công", "Đăng nhập thành công!");
+      // Login successful - redirect
+      console.log("[Auth] Login successful for", username.trim());
       router.replace("/(tabs)");
     } catch (error: any) {
-      console.error('[Auth] Login failed', { username: username.trim(), error });
-      Alert.alert("Lỗi đăng nhập", error.message || "Có lỗi xảy ra");
+      console.error("[Auth] Login failed", {
+        username: username.trim(),
+        error,
+      });
+      Alert.alert("Login Failed", error.message || "Something went wrong");
     } finally {
       setIsLoading(false);
     }
   };
-
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+    >
       <ThemedView style={styles.content}>
         {/* Logo/Icon */}
         <ThemedView style={styles.logoContainer}>
-          <IconSymbol
-            name="building.columns.fill"
-            size={64}
-            color={tintColor}
+          <Image
+            source={require("@/assets/images/UITBanking.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
           />
           <ThemedText type="title" style={styles.title}>
-            Banking App
+            UIT Banking
           </ThemedText>
-          <ThemedText style={styles.subtitle}>Đăng nhập để tiếp tục</ThemedText>
+          <ThemedText style={styles.subtitle}>Sign in to continue</ThemedText>
         </ThemedView>
 
         {/* Form */}
         <ThemedView style={styles.form}>
           {/* Username */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Tên đăng nhập</ThemedText>
+            <ThemedText style={styles.label}>Username</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
               <IconSymbol name="person.fill" size={20} color="#888" />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập tên đăng nhập"
+                placeholder="Enter your username"
                 placeholderTextColor="#888"
                 value={username}
                 onChangeText={setUsername}
@@ -97,14 +101,14 @@ export default function LoginScreen() {
 
           {/* Password */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Mật khẩu</ThemedText>
+            <ThemedText style={styles.label}>Password</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
-              <IconSymbol name="lock.fill" size={20} color="#888" />
+              <Ionicons name="lock-closed" size={20} color="#888" />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập mật khẩu"
+                placeholder="Enter your password"
                 placeholderTextColor="#888"
                 value={password}
                 onChangeText={setPassword}
@@ -136,28 +140,23 @@ export default function LoginScreen() {
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <ThemedText style={styles.loginButtonText}>Đăng nhập</ThemedText>
+              <ThemedText style={styles.loginButtonText}>Sign in</ThemedText>
             )}
           </Pressable>
 
           {/* Test Account Info */}
-          <ThemedView style={styles.testInfo}>
-            <ThemedText style={styles.testInfoText}>
-              💡 Tài khoản test: nguyenvana / password123
-            </ThemedText>
-          </ThemedView>
 
           {/* Register Link */}
           {/* Register Link */}
           <ThemedView style={styles.registerContainer}>
             <ThemedText style={styles.registerText}>
-              Chưa có tài khoản?{" "}
+              Do not have an account?{" "}
             </ThemedText>
             <Pressable
               onPress={() => router.push("/features/auth/register" as any)}
             >
               <ThemedText style={[styles.registerLink, { color: tintColor }]}>
-                Đăng ký ngay
+                Sign up now
               </ThemedText>
             </Pressable>
           </ThemedView>
@@ -171,11 +170,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    backgroundColor: "#fff",
+  },
+
   content: {
     flex: 1,
     padding: 24,
     justifyContent: "center",
+    paddingTop: -100,
   },
+
   logoContainer: {
     alignItems: "center",
     marginBottom: 48,
@@ -248,5 +254,10 @@ const styles = StyleSheet.create({
   registerLink: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
 });

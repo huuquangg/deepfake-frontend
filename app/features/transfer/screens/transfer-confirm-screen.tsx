@@ -88,7 +88,7 @@ export default function TransferConfirmScreen() {
             <IconSymbol name="chevron.left" size={24} color={tintColor} />
           </Pressable>
           <ThemedText type="title" style={styles.title}>
-            Xác nhận giao dịch
+            Transaction Confirmation
           </ThemedText>
           <ThemedView style={{ width: 24 }} />
         </ThemedView>
@@ -96,7 +96,7 @@ export default function TransferConfirmScreen() {
         {/* Transaction Info Card */}
         <ThemedView style={styles.infoCard}>
           <ThemedView style={styles.amountSection}>
-            <ThemedText style={styles.amountLabel}>Số tiền chuyển</ThemedText>
+            <ThemedText style={styles.amountLabel}>Transfer Amount</ThemedText>
             <ThemedText style={styles.amountValue}>
               {amountNumber.toLocaleString("vi-VN")} VND
             </ThemedText>
@@ -107,30 +107,32 @@ export default function TransferConfirmScreen() {
           {/* Details */}
           <ThemedView style={styles.detailsSection}>
             <ThemedView style={styles.detailRow}>
-              <ThemedText style={styles.detailLabel}>Người nhận</ThemedText>
+              <ThemedText style={styles.detailLabel}>Recipient</ThemedText>
               <ThemedText style={styles.detailValue}>
                 {toAccountNumber}
               </ThemedText>
             </ThemedView>
 
             <ThemedView style={styles.detailRow}>
-              <ThemedText style={styles.detailLabel}>Nội dung</ThemedText>
+              <ThemedText style={styles.detailLabel}>Description</ThemedText>
               <ThemedText style={[styles.detailValue, styles.descriptionText]}>
                 {description}
               </ThemedText>
             </ThemedView>
 
             <ThemedView style={styles.detailRow}>
-              <ThemedText style={styles.detailLabel}>Phí giao dịch</ThemedText>
+              <ThemedText style={styles.detailLabel}>
+                Transaction Fee
+              </ThemedText>
               <ThemedText style={[styles.detailValue, styles.freeText]}>
-                Miễn phí
+                Free
               </ThemedText>
             </ThemedView>
 
             <ThemedView style={styles.divider} />
 
             <ThemedView style={styles.detailRow}>
-              <ThemedText style={styles.totalLabel}>Tổng tiền</ThemedText>
+              <ThemedText style={styles.totalLabel}>Total Amount</ThemedText>
               <ThemedText style={styles.totalValue}>
                 {amountNumber.toLocaleString("vi-VN")} VND
               </ThemedText>
@@ -139,35 +141,35 @@ export default function TransferConfirmScreen() {
         </ThemedView>
 
         {/* Source Account */}
-        {account && (
-          <ThemedView style={styles.sourceCard}>
-            <ThemedView style={styles.sourceHeader}>
-              <IconSymbol name="creditcard.fill" size={24} color={tintColor} />
-              <ThemedText style={styles.sourceTitle}>
-                Tài khoản nguồn
-              </ThemedText>
-            </ThemedView>
-            <ThemedText style={styles.sourceAccount}>
-              {account.accountNumber} - {account.accountName}
+        {/* {account && (
+        <ThemedView style={styles.sourceCard}>
+          <ThemedView style={styles.sourceHeader}>
+            <IconSymbol name="creditcard.fill" size={24} color={tintColor} />
+            <ThemedText style={styles.sourceTitle}>
+              Source Account
             </ThemedText>
-            <ThemedView style={styles.balanceRow}>
-              <ThemedText style={styles.balanceLabel}>Số dư sau GD:</ThemedText>
-              <ThemedText style={styles.balanceValue}>
-                {(account.balance - amountNumber).toLocaleString("vi-VN")} VND
-              </ThemedText>
-            </ThemedView>
           </ThemedView>
-        )}
+          <ThemedText style={styles.sourceAccount}>
+            {account.accountNumber} - {account.accountName}
+          </ThemedText>
+          <ThemedView style={styles.balanceRow}>
+            <ThemedText style={styles.balanceLabel}>Balance After Transaction:</ThemedText>
+            <ThemedText style={styles.balanceValue}>
+              {(account.balance - amountNumber).toLocaleString("vi-VN")} VND
+            </ThemedText>
+          </ThemedView>
+        </ThemedView>
+      )} */}
 
         {/* Security Badge */}
         <ThemedView style={styles.securityBadge}>
           <IconSymbol name="checkmark.shield.fill" size={24} color="#34c759" />
           <ThemedView style={styles.securityText}>
             <ThemedText style={styles.securityTitle}>
-              Đã xác thực khuôn mặt
+              Face Verification Completed
             </ThemedText>
             <ThemedText style={styles.securitySubtitle}>
-              Giao dịch được bảo vệ bởi công nghệ deepfake detection
+              This transaction is protected by deepfake detection technology
             </ThemedText>
           </ThemedView>
         </ThemedView>
@@ -181,7 +183,7 @@ export default function TransferConfirmScreen() {
           >
             <IconSymbol name="pencil" size={20} color={tintColor} />
             <ThemedText style={[styles.editButtonText, { color: tintColor }]}>
-              Sửa
+              Edit
             </ThemedText>
           </Pressable>
 
@@ -198,19 +200,14 @@ export default function TransferConfirmScreen() {
               <>
                 <ActivityIndicator color="#fff" />
                 <ThemedText style={styles.confirmButtonText}>
-                  Đang xử lý...
+                  Processing...
                 </ThemedText>
               </>
             ) : (
               <>
                 <ThemedText style={styles.confirmButtonText}>
-                  Xác nhận chuyển tiền
+                  Confirm Transfer
                 </ThemedText>
-                <IconSymbol
-                  name="checkmark.circle.fill"
-                  size={24}
-                  color="#fff"
-                />
               </>
             )}
           </Pressable>
@@ -224,8 +221,8 @@ export default function TransferConfirmScreen() {
             color="#ff9500"
           />
           <ThemedText style={styles.warningText}>
-            Vui lòng kiểm tra kỹ thông tin trước khi xác nhận. Giao dịch không
-            thể hoàn tác.
+            Please review the information carefully before confirming. This
+            transaction cannot be reversed.
           </ThemedText>
         </ThemedView>
       </ThemedView>
@@ -280,45 +277,67 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#0a7ea4",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#E5E5E5",
-    marginVertical: 16,
-  },
+  // divider: {
+  //   height: 1,
+  //   backgroundColor: "#E5E5E5",
+  //   marginVertical: 16,
+  // },
   detailsSection: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
     gap: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    paddingVertical: 4,
   },
   detailLabel: {
     fontSize: 14,
-    opacity: 0.7,
+    color: "#6b7280",
+    fontWeight: "500",
     flex: 1,
+    flexShrink: 0,
+    minWidth: 100,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
+    color: "#1f2937",
     flex: 2,
     textAlign: "right",
+    lineHeight: 20,
   },
   descriptionText: {
     fontWeight: "400",
+    color: "#374151",
   },
   freeText: {
-    color: "#34c759",
+    color: "#10B981",
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E5E5EA",
+    marginVertical: 8,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#1f2937",
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#0a7ea4",
+    letterSpacing: -0.5,
   },
   sourceCard: {
     backgroundColor: "rgba(10, 126, 164, 0.1)",

@@ -1,3 +1,5 @@
+import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
   Alert,
@@ -43,47 +45,47 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     // Validation
     if (!username.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập tên đăng nhập");
+      Alert.alert("Error", "Please enter a username");
       return;
     }
 
     if (username.length < 6) {
-      Alert.alert("Lỗi", "Tên đăng nhập phải có ít nhất 6 ký tự");
+      Alert.alert("Error", "Username must be at least 6 characters long");
       return;
     }
 
     if (!email.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập email");
+      Alert.alert("Error", "Please enter your email");
       return;
     }
 
     if (!validateEmail(email)) {
-      Alert.alert("Lỗi", "Email không hợp lệ");
+      Alert.alert("Error", "Invalid email address");
       return;
     }
 
     if (!fullName.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập họ tên");
+      Alert.alert("Error", "Please enter your full name");
       return;
     }
 
     if (phone && !validatePhone(phone)) {
-      Alert.alert("Lỗi", "Số điện thoại phải có 10 chữ số");
+      Alert.alert("Error", "Phone number must be 10 digits");
       return;
     }
 
     if (!password) {
-      Alert.alert("Lỗi", "Vui lòng nhập mật khẩu");
+      Alert.alert("Error", "Please enter a password");
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 8 ký tự");
+      Alert.alert("Error", "Password must be at least 8 characters long");
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Lỗi", "Mật khẩu xác nhận không khớp");
+      Alert.alert("Error", "Passwords do not match");
       return;
     }
 
@@ -98,25 +100,28 @@ export default function RegisterScreen() {
         phone: phone.trim() || undefined,
       });
 
-      Alert.alert(
-        "Thành công",
-        "Đăng ký thành công! Bạn đã nhận được 10,000,000 VND khuyến mãi! 🎉",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/(tabs)"),
-          },
-        ]
-      );
+      Alert.alert("Success", "Registration successful!", [
+        {
+          text: "OK",
+          onPress: () => router.replace("/(tabs)"),
+        },
+      ]);
     } catch (error: any) {
-      Alert.alert("Lỗi đăng ký", error.message || "Có lỗi xảy ra");
+      Alert.alert(
+        "Registration failed",
+        error.message || "Something went wrong"
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 40 }}
+      keyboardShouldPersistTaps="handled"
+    >
       <ThemedView style={styles.content}>
         {/* Header */}
         <ThemedView style={styles.header}>
@@ -127,16 +132,18 @@ export default function RegisterScreen() {
 
         {/* Logo/Icon */}
         <ThemedView style={styles.logoContainer}>
-          <IconSymbol
-            name="person.crop.circle.fill.badge.plus"
-            size={64}
-            color={tintColor}
+          <Image
+            source={require("@/assets/images/UITBanking.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
           />
+
           <ThemedText type="title" style={styles.title}>
-            Đăng ký tài khoản
+            Create Account
           </ThemedText>
+
           <ThemedText style={styles.subtitle}>
-            Tạo tài khoản mới để bắt đầu
+            Create a new account to get started
           </ThemedText>
         </ThemedView>
 
@@ -144,14 +151,14 @@ export default function RegisterScreen() {
         <ThemedView style={styles.form}>
           {/* Username */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Tên đăng nhập *</ThemedText>
+            <ThemedText style={styles.label}>Username</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
-              <IconSymbol name="at" size={20} color="#888" />
+              <Ionicons name="at" size={20} color="#888" />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập tên đăng nhập"
+                placeholder="Enter your username"
                 placeholderTextColor="#888"
                 value={username}
                 onChangeText={setUsername}
@@ -164,11 +171,11 @@ export default function RegisterScreen() {
 
           {/* Email */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Email *</ThemedText>
+            <ThemedText style={styles.label}>Email</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
-              <IconSymbol name="envelope.fill" size={20} color="#888" />
+              <Ionicons name="mail" size={20} color="#888" />
               <TextInput
                 style={styles.input}
                 placeholder="example@email.com"
@@ -185,14 +192,14 @@ export default function RegisterScreen() {
 
           {/* Full Name */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Họ và tên *</ThemedText>
+            <ThemedText style={styles.label}>Full Name</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
               <IconSymbol name="person.fill" size={20} color="#888" />
               <TextInput
                 style={styles.input}
-                placeholder="Nguyễn Văn A"
+                placeholder="Enter your full name"
                 placeholderTextColor="#888"
                 value={fullName}
                 onChangeText={setFullName}
@@ -203,16 +210,14 @@ export default function RegisterScreen() {
 
           {/* Phone */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>
-              Số điện thoại (tùy chọn)
-            </ThemedText>
+            <ThemedText style={styles.label}>Phone Number</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
-              <IconSymbol name="phone.fill" size={20} color="#888" />
+              <Ionicons name="call" size={20} color="#888" />
               <TextInput
                 style={styles.input}
-                placeholder="0901234567"
+                placeholder="Enter your phone number"
                 placeholderTextColor="#888"
                 value={phone}
                 onChangeText={setPhone}
@@ -225,14 +230,14 @@ export default function RegisterScreen() {
 
           {/* Password */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Mật khẩu *</ThemedText>
+            <ThemedText style={styles.label}>Password</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
-              <IconSymbol name="lock.fill" size={20} color="#888" />
+              <Ionicons name="lock-closed" size={20} color="#888" />
               <TextInput
                 style={styles.input}
-                placeholder="Ít nhất 8 ký tự"
+                placeholder="At least 8 characters"
                 placeholderTextColor="#888"
                 value={password}
                 onChangeText={setPassword}
@@ -253,14 +258,14 @@ export default function RegisterScreen() {
 
           {/* Confirm Password */}
           <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Xác nhận mật khẩu *</ThemedText>
+            <ThemedText style={styles.label}>Confirm Password</ThemedText>
             <ThemedView
               style={[styles.inputContainer, { borderColor: tintColor }]}
             >
-              <IconSymbol name="lock.fill" size={20} color="#888" />
+              <Ionicons name="lock-closed" size={20} color="#888" />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập lại mật khẩu"
+                placeholder="Re-enter your password"
                 placeholderTextColor="#888"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -294,24 +299,18 @@ export default function RegisterScreen() {
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <ThemedText style={styles.registerButtonText}>Đăng ký</ThemedText>
+              <ThemedText style={styles.registerButtonText}>Sign up</ThemedText>
             )}
           </Pressable>
 
-          {/* Bonus Info */}
-          <ThemedView style={styles.bonusInfo}>
-            <IconSymbol name="gift.fill" size={20} color="#34c759" />
-            <ThemedText style={styles.bonusText}>
-              🎉 Tặng 10,000,000 VND khi đăng ký!
-            </ThemedText>
-          </ThemedView>
-
           {/* Login Link */}
           <ThemedView style={styles.loginContainer}>
-            <ThemedText style={styles.loginText}>Đã có tài khoản? </ThemedText>
+            <ThemedText style={styles.loginText}>
+              Already have an account?{" "}
+            </ThemedText>
             <Pressable onPress={() => router.back()}>
               <ThemedText style={[styles.loginLink, { color: tintColor }]}>
-                Đăng nhập ngay
+                Sign in now
               </ThemedText>
             </Pressable>
           </ThemedView>
@@ -326,24 +325,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
     padding: 20,
-    paddingTop: 60,
+    paddingTop: -100,
   },
+
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+    gap: 12,
+    marginTop: -12,
+  },
+
   header: {
     marginBottom: 24,
   },
   backButton: {
     padding: 8,
   },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 32,
-    gap: 12,
-  },
+
   title: {
     fontSize: 28,
+    fontWeight: "700",
   },
+
   subtitle: {
     fontSize: 16,
     opacity: 0.7,
@@ -413,5 +417,10 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
 });

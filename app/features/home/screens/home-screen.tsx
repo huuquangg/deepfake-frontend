@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Alert, StyleSheet, Pressable } from "react-native";
+import { Alert, StyleSheet, Pressable, View } from "react-native";
 import QuickActionCard from "@/app/features/home/_components/quick-action-card";
 import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
@@ -23,7 +23,6 @@ export default function HomeScreen() {
   // Fetch real account data from backend
   useEffect(() => {
     if (isAuthenticated && tokens?.accessToken) {
-      // ← Check tokens
       fetchAccountData();
     }
   }, [isAuthenticated, tokens]);
@@ -56,22 +55,17 @@ export default function HomeScreen() {
 
   const handleTransferPress = () => {
     if (!isAuthenticated) {
-      Alert.alert(
-        "Chưa đăng nhập",
-        "Vui lòng đăng nhập để sử dụng tính năng này"
-      );
+      Alert.alert("Not logged in", "Please log in to use this feature");
       return;
     }
-    // Navigate to transfer form
     router.push("/features/transfer/form" as any);
   };
 
   const handleHistoryPress = () => {
     if (!isAuthenticated) {
-      Alert.alert("Chưa đăng nhập", "Vui lòng đăng nhập để xem lịch sử");
+      Alert.alert("Not logged in", "Please sign in to view your history");
       return;
     }
-    // Navigate to transaction history
     router.push("/features/history/list" as any);
   };
 
@@ -80,14 +74,14 @@ export default function HomeScreen() {
   };
 
   const handleLogoutPress = () => {
-    Alert.alert("Đăng xuất", "Bạn có chắc muốn đăng xuất?", [
-      { text: "Hủy", style: "cancel" },
+    Alert.alert("Sign out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
       {
-        text: "Đăng xuất",
+        text: "Sign out",
         style: "destructive",
         onPress: async () => {
           await logout();
-          Alert.alert("Thành công", "Đã đăng xuất");
+          Alert.alert("Success", "You have signed out.");
         },
       },
     ]);
@@ -98,109 +92,103 @@ export default function HomeScreen() {
       headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
       headerImage={
         <Image
-          source={require("@/assets/images/partial-react-logo.png")}
+          source={require("@/assets/images/UITBanking.png")}
           style={styles.headerImage}
         />
       }
     >
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Banking App</ThemedText>
+        <ThemedText type="title">UIT Banking</ThemedText>
       </ThemedView>
 
       {/* User Info - Hiển thị khi đã login */}
       {isAuthenticated && user && account ? (
-        <ThemedView style={styles.accountCard}>
+        <View style={styles.accountCard}>
           {/* Header với avatar và logout */}
-          <ThemedView style={styles.accountHeaderRow}>
-            <ThemedView style={styles.avatarContainer}>
-              <IconSymbol
-                name="person.circle.fill"
-                size={50}
-                color={tintColor}
-              />
-            </ThemedView>
-            <ThemedView style={styles.userInfo}>
-              <ThemedText type="defaultSemiBold" style={styles.greeting}>
-                Xin chào!
-              </ThemedText>
-              <ThemedText type="subtitle" style={styles.userName}>
-                {user.fullName}
-              </ThemedText>
-            </ThemedView>
+          <View style={styles.accountHeaderRow}>
+            <View style={styles.avatarContainer}>
+              <IconSymbol name="person.circle.fill" size={50} color="#fff" />
+            </View>
+            <View style={styles.userInfo}>
+              <ThemedText style={styles.greeting}>Hello !</ThemedText>
+              <ThemedText style={styles.userName}>{user.fullName}</ThemedText>
+            </View>
             <Pressable onPress={handleLogoutPress} style={styles.logoutButton}>
               <IconSymbol
                 name="rectangle.portrait.and.arrow.right"
                 size={24}
-                color="#ff3b30"
+                color="#fff"
               />
             </Pressable>
-          </ThemedView>
+          </View>
 
           {/* Divider */}
-          <ThemedView style={styles.divider} />
+          <View style={styles.divider} />
 
           {/* Balance */}
-          <ThemedView style={styles.balanceContainer}>
-            <ThemedText style={styles.balanceLabel}>SỐ DƯ KHẢ DỤNG</ThemedText>
-            <ThemedText style={styles.balanceAmount}>
-              {realBalance !== null
-                ? realBalance.toLocaleString("vi-VN")
-                : account.balance.toLocaleString("vi-VN")}
+
+          <View style={styles.balanceContainer}>
+            <ThemedText style={styles.balanceLabel}>
+              Available Balance
             </ThemedText>
-            <ThemedText style={styles.currency}>VND</ThemedText>
-          </ThemedView>
+            <View style={styles.balanceRow}>
+              <ThemedText style={styles.balanceAmount}>
+                {realBalance !== null
+                  ? realBalance.toLocaleString("vi-VN")
+                  : account.balance.toLocaleString("vi-VN")}
+              </ThemedText>
+              <ThemedText style={styles.currency}> VND</ThemedText>
+            </View>
+          </View>
 
           {/* Account Number */}
-          <ThemedView style={styles.accountNumberRow}>
-            <IconSymbol name="creditcard.fill" size={16} color="#888" />
-            <ThemedText style={styles.accountNumber}>
-              STK: {accountNumber || account.accountNumber}
+          <View style={styles.accountNumberRow}>
+            <ThemedText style={styles.accountNumberLabel}>
+              Account Number
             </ThemedText>
-          </ThemedView>
-        </ThemedView>
+            <ThemedText style={styles.accountNumber}>
+              {accountNumber || account.accountNumber}
+            </ThemedText>
+          </View>
+
+          {/* Decorative circles */}
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
+        </View>
       ) : (
-        // Login prompt - Hiển thị khi chưa login
+        // Hiển thị khi chưa login
         <ThemedView style={styles.loginPrompt}>
           <ThemedText type="subtitle" style={styles.loginPromptTitle}>
-            Chưa đăng nhập
+            Not signed in
           </ThemedText>
           <ThemedText style={styles.loginPromptText}>
-            Đăng nhập để sử dụng đầy đủ tính năng ngân hàng
+            Sign in to access all banking features
           </ThemedText>
           <Pressable
             style={[styles.loginButton, { backgroundColor: tintColor }]}
             onPress={handleLoginPress}
           >
-            <ThemedText style={styles.loginButtonText}>
-              Đăng nhập ngay
-            </ThemedText>
+            <ThemedText style={styles.loginButtonText}>Sign in now</ThemedText>
           </Pressable>
         </ThemedView>
       )}
 
-      <ThemedView style={styles.descriptionContainer}>
-        <ThemedText>
-          Ứng dụng ngân hàng với công nghệ phát hiện deepfake, bảo vệ giao dịch
-          của bạn.
-        </ThemedText>
-      </ThemedView>
-
       <ThemedView style={styles.actionsContainer}>
         <QuickActionCard
-          title="Chuyển tiền"
-          description="Chuyển tiền an toàn với xác thực khuôn mặt"
+          title="Transfer"
+          description="Secure money transfer with face authentication"
           icon="arrow.up.arrow.down"
           onPress={handleTransferPress}
         />
         <QuickActionCard
-          title="Lịch sử giao dịch"
-          description="Xem lịch sử chuyển tiền"
+          title="Transaction History"
+          description="View your transfer history"
           icon="clock.fill"
           onPress={handleHistoryPress}
         />
         <QuickActionCard
-          title="Quét Deepfake"
-          description="Phát hiện khuôn mặt giả mạo"
+          title="Deepfake Scan"
+          description="Detect fake or manipulated faces"
           icon="camera.fill"
           onPress={handleCameraPress}
         />
@@ -211,100 +199,144 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   headerImage: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
     position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
+
   titleContainer: {
     flexDirection: "row",
-    alignItems: "center", // Bỏ hoặc comment dòng này
+    alignItems: "center",
     gap: 8,
     marginBottom: 16,
   },
 
   accountCard: {
-    padding: 24,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    marginHorizontal: 0,
     marginBottom: 24,
+    borderRadius: 20,
+    padding: 24,
+    minHeight: 200,
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "#0a7ea4",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   accountHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 10,
     gap: 12,
   },
   avatarContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "rgba(10, 126, 164, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     alignItems: "center",
     justifyContent: "center",
   },
   userInfo: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
   greeting: {
-    fontSize: 14,
-    color: "#888",
+    fontSize: 13,
+    color: "#ffffff80",
+    fontWeight: "500",
   },
   userName: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#000",
+    color: "#fff",
+    letterSpacing: 0.5,
   },
   logoutButton: {
     padding: 8,
   },
   divider: {
     height: 1,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     marginVertical: 16,
   },
   balanceContainer: {
     alignItems: "center",
-    paddingVertical: 12,
+
+    marginBottom: 20,
+    gap: 4,
+  },
+  balanceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 6,
   },
   balanceLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#888",
-    letterSpacing: 1,
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#ffffff80",
+    letterSpacing: 0.5,
+    textAlign: "center",
   },
   balanceAmount: {
-    fontSize: 30,
-    fontWeight: "bold",
-    color: "#0a7ea4",
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: -1,
   },
   currency: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
-    color: "#888",
-    marginTop: 4,
+    color: "#fff",
+    opacity: 0.9,
   },
   accountNumberRow: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    gap: 4,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#E5E5E5",
+    borderTopColor: "rgba(255, 255, 255, 0.2)",
+  },
+  accountNumberLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#ffffff80",
+    letterSpacing: 0.5,
+    textAlign: "center",
   },
   accountNumber: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
+    fontSize: 18,
+    color: "#fff",
+    fontWeight: "700",
+    letterSpacing: 1,
+    textAlign: "center",
   },
+
+  decorativeCircle1: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    top: -50,
+    right: -50,
+  },
+  decorativeCircle2: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    bottom: -30,
+    left: -30,
+  },
+
   loginPrompt: {
     padding: 24,
     borderRadius: 16,
@@ -331,9 +363,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  descriptionContainer: {
-    marginBottom: 24,
-  },
+
   actionsContainer: {
     gap: 16,
   },
