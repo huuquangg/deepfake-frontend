@@ -70,9 +70,10 @@ export default function TransferResultScreen() {
 
               <ThemedView style={styles.detailsList}>
                 <ThemedView style={styles.detailRow}>
-                  <ThemedText style={styles.detailLabel}>
+                  <ThemedText style={styles.detailLabel} numberOfLines={1}>
                     Transaction ID
                   </ThemedText>
+
                   <ThemedText style={styles.detailValue}>
                     {transactionCode}
                   </ThemedText>
@@ -348,13 +349,15 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 12,
   },
+
   detailLabel: {
     fontSize: 14,
     color: "#6b7280",
     fontWeight: "500",
-    width: 100,
-    flexShrink: 0,
+    flexShrink: 0, // không bị ép nhỏ
+    marginRight: 12,
   },
+
   detailValue: {
     flex: 1,
     fontSize: 14,

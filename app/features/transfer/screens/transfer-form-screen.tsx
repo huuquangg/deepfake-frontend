@@ -149,7 +149,7 @@ export default function TransferFormScreen() {
               <IconSymbol name="person.fill" size={20} color="#888" />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập số tài khoản"
+                placeholder="Enter recipient account number"
                 placeholderTextColor="#888"
                 value={toAccountNumber}
                 onChangeText={setToAccountNumber}
@@ -209,7 +209,7 @@ export default function TransferFormScreen() {
             >
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="Nhập nội dung"
+                placeholder="Enter message"
                 placeholderTextColor="#888"
                 value={description}
                 onChangeText={setDescription}
