@@ -1,10 +1,10 @@
 // Real API Service - Gọi backend thật
 import {
-  Account,
-  LoginRequest,
-  LoginResponse,
-  RegisterRequest,
-  AuthTokens,
+    Account,
+    AuthTokens,
+    LoginRequest,
+    LoginResponse,
+    RegisterRequest,
 } from "@/app/types/user.types";
 import { API_CONFIG, getApiUrl } from "./api-config";
 
@@ -14,21 +14,68 @@ const fetchApi = async (
   options: RequestInit = {}
 ): Promise<any> => {
   const url = getApiUrl(endpoint);
+  
+  // Sanitize and log request details for troubleshooting (do not leak passwords)
+  try {
+    const safeOptions: any = { ...options };
+    if (safeOptions.body) {
+      try {
+        const parsed = JSON.parse(safeOptions.body as string);
+        if (parsed && typeof parsed === 'object' && 'password' in parsed) {
+          parsed.password = '***';
+        }
+        safeOptions._loggedBody = parsed;
+      } catch (e) {
+        // body not JSON, skip parsing
+        safeOptions._loggedBody = safeOptions.body;
+      }
+    }
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
+    console.log('[API] Request ->', {
+      url,
+      method: safeOptions.method || 'GET',
+      headers: safeOptions.headers,
+      body: safeOptions._loggedBody,
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || "API request failed");
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    // Clone response so we can read body for logging without interfering
+    const clone = response.clone();
+
+    let responseText: string | null = null;
+    try {
+      responseText = await clone.text();
+      // Try to parse JSON for nicer logging
+      try {
+        const parsed = JSON.parse(responseText);
+        console.log('[API] Response <-', { url, status: response.status, body: parsed });
+      } catch (e) {
+        console.log('[API] Response <-', { url, status: response.status, body: responseText });
+      }
+    } catch (e) {
+      console.log('[API] Response <-', { url, status: response.status, body: '<unreadable>' });
+    }
+
+    if (!response.ok) {
+      // If server returned JSON error, try to include it
+      const text = responseText || (await response.text().catch(() => ''));
+      console.error('[API] Error response', { url, status: response.status, body: text });
+      throw new Error(text || 'API request failed');
+    }
+
+    // Return parsed JSON
+    return response.json();
+  } catch (err) {
+    console.error('[API] Request failed ->', { url, error: err });
+    throw err;
   }
-
-  return response.json();
 };
 
 // Real API Service

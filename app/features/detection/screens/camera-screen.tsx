@@ -10,6 +10,9 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { Camera, useCameraDevice, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
+import { DetectionResult, socketService } from '../../../services/video-streaming/socket.service';
+import { STREAMING_CONFIG } from '../../../services/video-streaming/streaming-config';
+import { videoStreamingService } from '../../../services/video-streaming/video-streaming.service';
 
 interface DetectedFace {
   bounds: {
@@ -23,9 +26,10 @@ interface DetectedFace {
   rightEyeOpenProbability?: number;
 }
 
-// Local storage configuration
-const SAVE_DIRECTORY = '/home/huuquangdang/huu.quang.dang/thesis/deepfake-1801-fe/assets/test';
+// Configuration
 const DETECTION_INTERVAL = 500; // Detect faces every 500ms
+const INGEST_THROTTLE = 1000; // Send frame to server every 1 second when face detected
+const SESSION_ID = STREAMING_CONFIG.DEFAULT_SESSION_ID;
 
 export default function CameraScreen() {
   const device = useCameraDevice('front');
@@ -35,7 +39,10 @@ export default function CameraScreen() {
   const colorScheme = useColorScheme();
   const [isActive, setIsActive] = useState(true);
   const [faceCount, setFaceCount] = useState(0);
+  const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
   const lastDetectionTime = useRef(0);
+  const lastIngestTime = useRef(0);
 
   const faces = useSharedValue<DetectedFace[]>([]);
 
@@ -54,34 +61,41 @@ export default function CameraScreen() {
     }
   };
 
-  // Function to save frame and detect faces
-  const processFrame = async (frameUri: string) => {
-    const now = Date.now();
-
-    // Throttle detection
-    if (now - lastDetectionTime.current < DETECTION_INTERVAL) {
-      return;
-    }
-    lastDetectionTime.current = now;
-
-    // Detect faces
-    const detectedFaces = await detectFacesFromUri(frameUri);
-
-    // Update faces for overlay
-    faces.value = detectedFaces;
-    setFaceCount(detectedFaces.length);
-  };
-
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
-
     // For real-time detection, we need to save the frame as image first
     // This is a workaround since expo-face-detector works with URIs
     // In production, you'd want to use a native face detection that works with frames directly
-
   }, []);
 
-  // Real-time face detection using interval
+  // Socket.IO connection management
+  useEffect(() => {
+    if (!isFocused) return;
+
+    console.log('🔌 Setting up Socket.IO connection...');
+    
+    // Connect to Socket.IO and listen for results
+    socketService.connect(SESSION_ID, (result: DetectionResult) => {
+      console.log('📊 Detection result received in UI:', result);
+      setDetectionResult(result);
+    });
+
+    setIsSocketConnected(socketService.isConnected());
+
+    // Check connection status periodically
+    const statusInterval = setInterval(() => {
+      setIsSocketConnected(socketService.isConnected());
+    }, 2000);
+
+    return () => {
+      console.log('🔌 Cleaning up Socket.IO connection...');
+      clearInterval(statusInterval);
+      socketService.disconnect();
+      setIsSocketConnected(false);
+    };
+  }, [isFocused]);
+
+  // Real-time face detection and frame ingestion
   useEffect(() => {
     if (!isActive || !isFocused || !camera.current) return;
 
@@ -91,12 +105,38 @@ export default function CameraScreen() {
           const photo = await camera.current.takeSnapshot({
             quality: 50, // Lower quality for faster processing
           });
+          
+          const photoUri = `file://${photo.path}`;
+          
           // Detect faces
-          const detectedFaces = await detectFacesFromUri(`file://${photo.path}`);
+          const detectedFaces = await detectFacesFromUri(photoUri);
           faces.value = detectedFaces;
           setFaceCount(detectedFaces.length);
-          // Clean up snapshot
-          await FileSystem.deleteAsync(`file://${photo.path}`, { idempotent: true });
+          
+          // If face detected, send frame to server for deepfake analysis
+          const now = Date.now();
+          if (detectedFaces.length > 0 && now - lastIngestTime.current >= INGEST_THROTTLE) {
+            lastIngestTime.current = now;
+            
+            console.log('👤 Face detected! Sending frame to server...');
+            
+            // Send frame to backend (don't await to avoid blocking)
+            videoStreamingService.ingestFrame({
+              sessionId: SESSION_ID,
+              frameUri: photoUri,
+            }).catch((error: any) => {
+              console.error('Failed to ingest frame:', error);
+            });
+          }
+          
+          // Clean up snapshot after a small delay (to allow upload to complete)
+          setTimeout(async () => {
+            try {
+              await FileSystem.deleteAsync(photoUri, { idempotent: true });
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+          }, 500);
         }
       } catch (error) {
         // Silently fail - snapshots might fail during transitions
@@ -165,13 +205,44 @@ export default function CameraScreen() {
 
       <View style={styles.overlay}>
         <View style={styles.topBar}>
-          <ThemedView style={styles.badge}>
+          {/* <ThemedView style={styles.badge}>
             <ThemedText style={styles.badgeText}>
               {faceCount > 0 ? `${faceCount} Face${faceCount > 1 ? 's' : ''} Detected` : 'Scanning...'}
             </ThemedText>
-          </ThemedView>
+          </ThemedView> */}
+          
+          {/* Socket connection status */}
+          {/* <ThemedView style={[styles.badge, styles.socketBadge, isSocketConnected ? styles.socketConnected : styles.socketDisconnected]}>
+            <ThemedText style={styles.badgeText}>
+              {isSocketConnected ? '🟢 Connected' : '🔴 Disconnected'}
+            </ThemedText>
+          </ThemedView> */}
+          
+          {/* Detection result (Option B: backend prediction payload) */}
+          {detectionResult && (
+            <ThemedView style={[
+              styles.resultBadge,
+              detectionResult.label === 'REAL' ? styles.resultReal : 
+              detectionResult.label === 'FAKE' ? styles.resultFake : 
+              styles.resultUnknown
+            ]}>
+              <ThemedText style={styles.resultLabel}>
+                {detectionResult.label === 'REAL' ? '✅ REAL' : 
+                 detectionResult.label === 'FAKE' ? '⚠️ FAKE' : 
+                 '❓ UNKNOWN'}
+              </ThemedText>
+              <ThemedText style={styles.resultConfidence}>
+                {(detectionResult.confidence * 100).toFixed(1)}% confidence
+              </ThemedText>
+              <ThemedText style={styles.resultStats}>
+                Real: {(detectionResult.probReal * 100).toFixed(1)}% | Fake: {(detectionResult.probFake * 100).toFixed(1)}%
+              </ThemedText>
+              {/* <ThemedText style={styles.resultMeta}>
+                Batch: {detectionResult.batchId} | {detectionResult.inferenceMs}ms
+              </ThemedText> */}
+            </ThemedView>
+          )}
         </View>
-
       </View>
     </View>
   );
@@ -221,11 +292,69 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(52, 199, 89, 0.9)',
+    marginBottom: 8,
   },
   badgeText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  socketBadge: {
+    backgroundColor: 'rgba(0, 122, 255, 0.9)',
+  },
+  socketConnected: {
+    backgroundColor: 'rgba(52, 199, 89, 0.9)',
+  },
+  socketDisconnected: {
+    backgroundColor: 'rgba(255, 59, 48, 0.9)',
+  },
+  resultBadge: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  resultReal: {
+    backgroundColor: 'rgba(52, 199, 89, 0.95)',
+  },
+  resultFake: {
+    backgroundColor: 'rgba(255, 59, 48, 0.95)',
+  },
+  resultUnknown: {
+    backgroundColor: 'rgba(255, 149, 0, 0.95)',
+  },
+  resultLabel: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  resultConfidence: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.9,
+    marginBottom: 4,
+  },
+  resultStats: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.85,
+    marginBottom: 2,
+  },
+  resultMeta: {
+    color: '#fff',
+    fontSize: 10,
+    opacity: 0.7,
+  },
+  resultMessage: {
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+    opacity: 0.8,
   },
   bottomBar: {
     padding: 32,

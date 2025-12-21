@@ -1,19 +1,19 @@
-import { useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
-import { router } from "expo-router";
+import { useAuth } from "@/app/contexts/auth-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useAuth } from "@/app/contexts/auth-context";
+import { router } from "expo-router";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+} from "react-native";
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -37,15 +37,20 @@ export default function LoginScreen() {
       return;
     }
 
+    // Log attempt (do not log password)
+    console.log('[Auth] Login attempt', { username: username.trim() });
+
     setIsLoading(true);
 
     try {
       await login({ username: username.trim(), password });
 
       // Login thành công - AuthContext sẽ tự động redirect
+      console.log('[Auth] Login successful for', username.trim());
       Alert.alert("Thành công", "Đăng nhập thành công!");
       router.replace("/(tabs)");
     } catch (error: any) {
+      console.error('[Auth] Login failed', { username: username.trim(), error });
       Alert.alert("Lỗi đăng nhập", error.message || "Có lỗi xảy ra");
     } finally {
       setIsLoading(false);
