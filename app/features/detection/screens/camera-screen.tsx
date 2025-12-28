@@ -1,82 +1,176 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useIsFocused } from '@react-navigation/native';
-import * as FaceDetector from 'expo-face-detector';
 import * as FileSystem from 'expo-file-system/legacy';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
-import { Camera, useCameraDevice, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { DetectionResult, socketService } from '../../../services/video-streaming/socket.service';
 import { STREAMING_CONFIG } from '../../../services/video-streaming/streaming-config';
-import { videoStreamingService } from '../../../services/video-streaming/video-streaming.service';
-
-interface DetectedFace {
-  bounds: {
-    origin: { x: number; y: number };
-    size: { width: number; height: number };
-  };
-  rollAngle?: number;
-  yawAngle?: number;
-  smilingProbability?: number;
-  leftEyeOpenProbability?: number;
-  rightEyeOpenProbability?: number;
-}
+import { createWebRTCService, WebRTCService } from '../../../services/video-streaming/webrtc.service';
 
 // Configuration
-const DETECTION_INTERVAL = 500; // Detect faces every 500ms
-const INGEST_THROTTLE = 1000; // Send frame to server every 1 second when face detected
 const SESSION_ID = STREAMING_CONFIG.DEFAULT_SESSION_ID;
 
 export default function CameraScreen() {
-  const device = useCameraDevice('front');
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const camera = useRef<Camera>(null);
   const isFocused = useIsFocused();
   const colorScheme = useColorScheme();
-  const [isActive, setIsActive] = useState(true);
-  const [faceCount, setFaceCount] = useState(0);
   const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
-  const lastDetectionTime = useRef(0);
-  const lastIngestTime = useRef(0);
+  const [webrtcConnectionState, setWebrtcConnectionState] = useState<string>('disconnected');
+  const [frameCount, setFrameCount] = useState<number>(0);
+  const webrtcService = useRef<WebRTCService | null>(null);
+  const cameraRef = useRef<Camera>(null);
+  const captureIntervalRef = useRef<any>(null);
+  const frameCounter = useRef<number>(0);
+  
+  // Vision Camera setup
+  const device = useCameraDevice('front');
+  const { hasPermission, requestPermission } = useCameraPermission();
 
-  const faces = useSharedValue<DetectedFace[]>([]);
+  // Capture and send frames using takePhoto
+  const captureAndSendFrame = async () => {
+    // Check if camera is still active and frames channel is ready
+    if (!cameraRef.current || 
+        !webrtcService.current?.isFramesChannelReady() || 
+        !isFocused ||
+        !captureIntervalRef.current) {
+      return;
+    }
 
-  // Function to detect faces from image URI
-  const detectFacesFromUri = async (uri: string) => {
     try {
-      const result = await FaceDetector.detectFacesAsync(uri, {
-        mode: FaceDetector.FaceDetectorMode.fast,
-        detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
-        runClassifications: FaceDetector.FaceDetectorClassifications.all,
+      const photo = await cameraRef.current.takePhoto({
+        enableShutterSound: false,
       });
-      return result.faces;
-    } catch (error) {
-      console.error('Face detection error:', error);
-      return [];
+
+      // Resize to 640x480 with 70% quality (target: <100KB)
+      const resized = await manipulateAsync(
+        'file://' + photo.path,
+        [{ resize: { width: 640 } }], // Height auto-calculated to maintain aspect ratio
+        { compress: 0.7, format: SaveFormat.JPEG }
+      );
+
+      // Read resized photo as base64
+      const base64 = await FileSystem.readAsStringAsync(resized.uri, {
+        encoding: 'base64',
+      });
+
+      // Send frame
+      await webrtcService.current.sendFrame(base64);
+      
+      frameCounter.current++;
+      
+      // Log every frame for detailed tracking
+      if (frameCounter.current % 5 === 0) {
+        const sizeKB = (base64.length / 1024).toFixed(1);
+        console.log(`📸 Frame ${frameCounter.current} sent (${sizeKB} KB)`);
+      }
+      
+      // Update UI every 15 frames
+      if (frameCounter.current % 15 === 0) {
+        setFrameCount(frameCounter.current);
+        console.log(`✅ Total frames sent: ${frameCounter.current}`);
+      }
+    } catch (error: any) {
+      // Only log if camera isn't closed (expected during cleanup)
+      if (!error?.message?.includes('Camera is closed')) {
+        console.error(`❌ Frame ${frameCounter.current + 1} failed:`, error);
+      }
     }
   };
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    // For real-time detection, we need to save the frame as image first
-    // This is a workaround since expo-face-detector works with URIs
-    // In production, you'd want to use a native face detection that works with frames directly
-  }, []);
+  // Start frame capture
+  const startFrameCapture = () => {
+    if (captureIntervalRef.current) return;
+    
+    console.log('🎬 Starting frame capture at ~15 FPS');
+    captureIntervalRef.current = setInterval(() => {
+      captureAndSendFrame();
+    }, 66); // ~15 FPS
+  };
 
-  // Socket.IO connection management
+  // Stop frame capture
+  const stopFrameCapture = () => {
+    if (captureIntervalRef.current) {
+      clearInterval(captureIntervalRef.current);
+      captureIntervalRef.current = null;
+      console.log(`🎬 Frame capture stopped. Total: ${frameCounter.current}`);
+    }
+  };
+
+  // WebRTC connection management
   useEffect(() => {
     if (!isFocused) return;
 
-    console.log('🔌 Setting up Socket.IO connection...');
+    const initializeWebRTC = async () => {
+      try {
+        console.log('🚀 Initializing WebRTC signaling...');
+        
+        webrtcService.current = createWebRTCService({
+          sessionId: SESSION_ID,
+          onConnectionStateChange: (state) => {
+            console.log(`🔗 WebRTC connection state: ${state}`);
+            setWebrtcConnectionState(state);
+          },
+          onICEConnectionStateChange: (state) => {
+            console.log(`🧊 ICE connection state: ${state}`);
+          },
+          onFramesChannelOpen: () => {
+            console.log('✅ Frames channel ready - starting capture');
+            frameCounter.current = 0;
+            startFrameCapture();
+          },
+          onError: (error) => {
+            console.error('❌ WebRTC error:', error);
+            setWebrtcConnectionState('failed');
+            Alert.alert(
+              'WebRTC Error',
+              error.message,
+              [{ text: 'OK' }]
+            );
+          },
+        });
+
+        // Initialize signaling connection (data channels only, no media tracks)
+        await webrtcService.current.initializeConnection();
+        
+        console.log('✅ WebRTC signaling established');
+      } catch (error) {
+        console.error('Failed to initialize WebRTC:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        Alert.alert(
+          'WebRTC Error',
+          `Failed to establish connection: ${errorMessage}`,
+          [{ text: 'OK' }]
+        );
+        setWebrtcConnectionState('failed');
+      }
+    };
+
+    initializeWebRTC();
+
+    return () => {
+      console.log('🔌 Cleaning up WebRTC connection...');
+      stopFrameCapture();
+      if (webrtcService.current) {
+        webrtcService.current.close();
+        webrtcService.current = null;
+      }
+      setFrameCount(0);
+      setWebrtcConnectionState('disconnected');
+    };
+  }, [isFocused]);
+
+  // Socket.IO connection management for receiving predictions
+  useEffect(() => {
+    if (!isFocused) return;
+
+    console.log('Setting up Socket.IO connection...');
     
     // Connect to Socket.IO and listen for results
     socketService.connect(SESSION_ID, (result: DetectionResult) => {
-      console.log('📊 Detection result received in UI:', result);
       setDetectionResult(result);
     });
 
@@ -88,137 +182,91 @@ export default function CameraScreen() {
     }, 2000);
 
     return () => {
-      console.log('🔌 Cleaning up Socket.IO connection...');
+      console.log('Cleaning up Socket.IO connection...');
       clearInterval(statusInterval);
       socketService.disconnect();
       setIsSocketConnected(false);
     };
   }, [isFocused]);
 
-  // Real-time face detection and frame ingestion
-  useEffect(() => {
-    if (!isActive || !isFocused || !camera.current) return;
-
-    const interval = setInterval(async () => {
-      try {
-        if (camera.current) {
-          const photo = await camera.current.takeSnapshot({
-            quality: 50, // Lower quality for faster processing
-          });
-          
-          const photoUri = `file://${photo.path}`;
-          
-          // Detect faces
-          const detectedFaces = await detectFacesFromUri(photoUri);
-          faces.value = detectedFaces;
-          setFaceCount(detectedFaces.length);
-          
-          // If face detected, send frame to server for deepfake analysis
-          const now = Date.now();
-          if (detectedFaces.length > 0 && now - lastIngestTime.current >= INGEST_THROTTLE) {
-            lastIngestTime.current = now;
-            
-            console.log('👤 Face detected! Sending frame to server...');
-            
-            // Send frame to backend (don't await to avoid blocking)
-            videoStreamingService.ingestFrame({
-              sessionId: SESSION_ID,
-              frameUri: photoUri,
-            }).catch((error: any) => {
-              console.error('Failed to ingest frame:', error);
-            });
-          }
-          
-          // Clean up snapshot after a small delay (to allow upload to complete)
-          setTimeout(async () => {
-            try {
-              await FileSystem.deleteAsync(photoUri, { idempotent: true });
-            } catch (e) {
-              // Ignore cleanup errors
-            }
-          }, 500);
-        }
-      } catch (error) {
-        // Silently fail - snapshots might fail during transitions
-      }
-    }, DETECTION_INTERVAL);
-
-    return () => clearInterval(interval);
-  }, [isActive, isFocused]);
-
+  // Request camera permission on mount
   useEffect(() => {
     if (!hasPermission) {
       requestPermission();
     }
-  }, [hasPermission, requestPermission]);
+  }, [hasPermission]);
 
-  useEffect(() => {
-    setIsActive(isFocused);
-  }, [isFocused]);
-
+  // Show permission request screen
   if (!hasPermission) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.permissionContainer}>
-          <IconSymbol name="exclamationmark.triangle.fill" size={64} color="#ff3b30" />
-          <ThemedText type="title" style={styles.permissionTitle}>
-            Camera Permission Required
-          </ThemedText>
-          <ThemedText style={styles.permissionText}>
-            This app needs camera access to detect deepfakes in photos and videos.
-          </ThemedText>
-          <Pressable
-            style={[styles.button, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
-            onPress={requestPermission}>
-            <Text style={styles.buttonText}>Grant Permission</Text>
-          </Pressable>
-        </ThemedView>
-      </ThemedView>
+      <View style={[styles.container, styles.cameraPlaceholder]}>
+        <ThemedText style={styles.placeholderText}>📷 Camera Permission Required</ThemedText>
+        <ThemedText style={styles.placeholderSubtext}>Please grant camera access to continue</ThemedText>
+      </View>
     );
   }
 
+  // Show loading if no device
   if (!device) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.permissionContainer}>
-          <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
-          <ThemedText type="title" style={styles.permissionTitle}>
-            Loading Camera...
-          </ThemedText>
-        </ThemedView>
-      </ThemedView>
+      <View style={[styles.container, styles.cameraPlaceholder]}>
+        <ThemedText style={styles.placeholderText}>📹 Initializing Camera...</ThemedText>
+      </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Vision Camera preview with photo-based frame capture */}
       <Camera
-        ref={camera}
+        ref={cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={isActive && isFocused}
+        isActive={isFocused}
         photo={true}
-        frameProcessor={frameProcessor}
       />
-
-      {/* <FaceOverlay faces={faces} /> */}
 
       <View style={styles.overlay}>
         <View style={styles.topBar}>
-          {/* <ThemedView style={styles.badge}>
+          {/* WebRTC connection status */}
+          <ThemedView style={[
+            styles.badge,
+            styles.socketBadge,
+            webrtcConnectionState === 'connected' ? styles.socketConnected : 
+            webrtcConnectionState === 'failed' ? styles.socketDisconnected :
+            styles.socketConnecting
+          ]}>
             <ThemedText style={styles.badgeText}>
-              {faceCount > 0 ? `${faceCount} Face${faceCount > 1 ? 's' : ''} Detected` : 'Scanning...'}
+              {webrtcConnectionState === 'connected' ? '🟢 WebRTC Connected' : 
+               webrtcConnectionState === 'connecting' || webrtcConnectionState === 'new' ? '🟡 Connecting...' :
+               webrtcConnectionState === 'failed' ? '🔴 Failed' :
+               webrtcConnectionState === 'closed' ? '⚫ Closed' :
+               webrtcConnectionState === 'disconnected' ? '🔴 Disconnected' :
+               `🟠 ${webrtcConnectionState}`}
             </ThemedText>
-          </ThemedView> */}
-          
+          </ThemedView>
+
           {/* Socket connection status */}
-          {/* <ThemedView style={[styles.badge, styles.socketBadge, isSocketConnected ? styles.socketConnected : styles.socketDisconnected]}>
+          <ThemedView style={[
+            styles.badge,
+            styles.socketBadge,
+            isSocketConnected ? styles.socketConnected : styles.socketDisconnected
+          ]}>
             <ThemedText style={styles.badgeText}>
-              {isSocketConnected ? '🟢 Connected' : '🔴 Disconnected'}
+              {isSocketConnected ? '🟢 Socket Connected' : '🔴 Socket Disconnected'}
             </ThemedText>
-          </ThemedView> */}
+          </ThemedView>
+
+          {/* Frame counter */}
+          {webrtcConnectionState === 'connected' && frameCount > 0 && (
+            <ThemedView style={[styles.badge, styles.frameBadge]}>
+              <ThemedText style={styles.badgeText}>
+                📸 Frames: {frameCount}
+              </ThemedText>
+            </ThemedView>
+          )}
           
-          {/* Detection result (Option B: backend prediction payload) */}
+          {/* Detection result */}
           {detectionResult && (
             <ThemedView style={[
               styles.resultBadge,
@@ -237,9 +285,6 @@ export default function CameraScreen() {
               <ThemedText style={styles.resultStats}>
                 Real: {(detectionResult.probReal * 100).toFixed(1)}% | Fake: {(detectionResult.probFake * 100).toFixed(1)}%
               </ThemedText>
-              {/* <ThemedText style={styles.resultMeta}>
-                Batch: {detectionResult.batchId} | {detectionResult.inferenceMs}ms
-              </ThemedText> */}
             </ThemedView>
           )}
         </View>
@@ -251,32 +296,22 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
   },
-  permissionContainer: {
-    flex: 1,
+  cameraPlaceholder: {
+    backgroundColor: '#1a1a1a',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    gap: 16,
   },
-  permissionTitle: {
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  permissionText: {
-    textAlign: 'center',
-    opacity: 0.7,
-    marginBottom: 16,
-  },
-  button: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
+  placeholderText: {
+    fontSize: 20,
     fontWeight: '600',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  placeholderSubtext: {
+    fontSize: 14,
+    color: '#999',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -307,6 +342,12 @@ const styles = StyleSheet.create({
   },
   socketDisconnected: {
     backgroundColor: 'rgba(255, 59, 48, 0.9)',
+  },
+  socketConnecting: {
+    backgroundColor: 'rgba(255, 149, 0, 0.9)',
+  },
+  frameBadge: {
+    backgroundColor: 'rgba(88, 86, 214, 0.9)',
   },
   resultBadge: {
     paddingHorizontal: 20,
@@ -343,41 +384,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     opacity: 0.85,
     marginBottom: 2,
-  },
-  resultMeta: {
-    color: '#fff',
-    fontSize: 10,
-    opacity: 0.7,
-  },
-  resultMessage: {
-    color: '#fff',
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
-    opacity: 0.8,
-  },
-  bottomBar: {
-    padding: 32,
-    alignItems: 'center',
-    paddingBottom: 48,
-  },
-  captureButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  captureButtonDisabled: {
-    opacity: 0.5,
-  },
-  captureButtonInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fff',
   },
 });

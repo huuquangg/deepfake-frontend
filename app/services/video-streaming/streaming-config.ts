@@ -16,14 +16,25 @@
 // - Physical Device: use your machine's LAN IP (e.g., 192.168.1.x)
 
 export const STREAMING_CONFIG = {
-  // HTTP API endpoint for frame ingestion
-  BASE_URL: "http://192.168.1.12:8091", // Backend IP:port
+  // HTTP API endpoint for frame ingestion (legacy)
+  BASE_URL: "http://192.168.1.64:8096", // Backend IP:port
+  
+  // WebRTC API endpoint for real-time video streaming
+  WEBRTC_BASE_URL: "http://192.168.1.64:8096", // Backend WebRTC API
   
   // Socket.IO endpoint for real-time predictions (Option B: Backend is server)
-  SOCKET_URL: "http://192.168.1.12:8093", // Backend Socket.IO server port (consumer.py SOCKETIO_PORT)
+  SOCKET_URL: "http://192.168.1.64:8096", // Backend Socket.IO server (proxied through API gateway)
   
   ENDPOINTS: {
     INGEST_FRAME: "/api/video-streaming/ingest/frame",
+  },
+  
+  // WebRTC endpoints (under video-streaming namespace)
+  WEBRTC_ENDPOINTS: {
+    OFFER: "/api/video-streaming/webrtc/stream/offer",
+    CANDIDATE: "/api/video-streaming/webrtc/stream/candidate",
+    CLOSE: "/api/video-streaming/webrtc/stream/{session_id}/close",
+    STATS: "/api/video-streaming/webrtc/stats",
   },
   
   // Default session ID - MUST be same across socket and frame uploads
@@ -38,15 +49,21 @@ export const STREAMING_CONFIG = {
   
   // Socket.IO options (Option B: websocket-first, client mode)
   SOCKET_OPTIONS: {
-    transports: ["websocket"], // Use websocket only (backend is server)
+    transports: ["websocket"], // Force websocket to avoid RN polling issues
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionAttempts: 10,
-    timeout: 10000,
+    timeout: 20000,
+    path: "/socket.io", // Must match API gateway route (no trailing slash)
   },
 };
 
 // Helper to get full API URL
 export const getStreamingApiUrl = (endpoint: string): string => {
   return `${STREAMING_CONFIG.BASE_URL}${endpoint}`;
+};
+
+// Helper to get full WebRTC API URL
+export const getWebRTCApiUrl = (endpoint: string): string => {
+  return `${STREAMING_CONFIG.WEBRTC_BASE_URL}${endpoint}`;
 };

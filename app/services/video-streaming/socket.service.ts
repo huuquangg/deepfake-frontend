@@ -57,11 +57,11 @@ class SocketService {
    */
   connect(sessionId: string, onResult: ResultCallback): void {
     if (this.socket && this.socket.connected) {
-      console.log('⚠️ Socket already connected');
+      console.log(' Socket already connected');
       return;
     }
 
-    console.log('🔌 Connecting to Socket.IO backend server (Option B)...');
+    console.log(' Connecting to Socket.IO backend server (Option B)...');
     console.log('  URL:', STREAMING_CONFIG.SOCKET_URL);
     console.log('  Session ID:', sessionId);
     console.log('  Transport: websocket');
@@ -78,36 +78,29 @@ class SocketService {
 
     // Connection events
     this.socket.on('connect', () => {
-      console.log('✅ Socket.IO connected to backend');
+      console.log(' Socket.IO connected to backend');
       console.log('  Socket ID:', this.socket?.id);
       console.log('  Listening for "prediction" events');
-      
-      // Join session room for filtering (Option B: backend uses rooms)
-      console.log('📥 Joining session room:', sessionId);
+
       this.socket?.emit('join_session', { session_id: sessionId });
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log('🔌 Socket.IO disconnected:', reason);
+      console.log('Socket.IO disconnected:', reason);
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('❌ Socket.IO connection error:', error.message);
+      console.error(' Socket.IO connection error:', error.message);
       console.error('  Make sure backend Socket.IO server is running');
       console.error('  Check network: phone must reach', STREAMING_CONFIG.SOCKET_URL);
     });
 
     this.socket.on('reconnect', (attemptNumber) => {
-      console.log('🔄 Socket.IO reconnected after', attemptNumber, 'attempts');
+      console.log(' Socket.IO reconnected after', attemptNumber, 'attempts');
     });
 
     // Listen for "prediction" events (Option B backend contract)
     this.socket.on('prediction', (payload: PredictionPayload) => {
-      console.log('📊 Prediction received from backend:', payload);
-      console.log('  Payload session_id:', payload.session_id);
-      console.log('  Expected session_id:', sessionId);
-      console.log('  Match:', payload.session_id === sessionId);
-      
       // Filter by session ID (backend may broadcast to all or room-filtered)
       if (payload.session_id === sessionId) {
         const result: DetectionResult = {
@@ -121,23 +114,17 @@ class SocketService {
           inferenceMs: payload.inference_ms,
           timestamp: payload.timestamp,
         };
-        
-        console.log('✅ Prediction normalized for UI:', result);
+
+        console.log(' Prediction normalized for UI:', result);
         onResult(result);
       } else {
-        console.log('⏭️ Skipping prediction for different session:', payload.session_id);
+        console.log(' Skipping prediction for different session:', payload.session_id);
       }
-    });
-
-    // Debug: Listen for ALL events to catch what backend is actually sending
-    this.socket.onAny((eventName, ...args) => {
-      console.log('🔔 Socket.IO event received:', eventName);
-      console.log('  Args:', JSON.stringify(args, null, 2));
     });
 
     // Debug: Catch any errors
     this.socket.on('error', (error) => {
-      console.error('❌ Socket.IO error:', error);
+      console.error(' Socket.IO error:', error);
     });
   }
 
@@ -146,7 +133,7 @@ class SocketService {
    */
   disconnect(): void {
     if (this.socket) {
-      console.log('🔌 Disconnecting Socket.IO...');
+      console.log('Disconnecting Socket.IO...');
       this.socket.disconnect();
       this.socket = null;
       this.currentSessionId = null;
@@ -166,11 +153,11 @@ class SocketService {
    */
   joinSession(sessionId: string): void {
     if (!this.socket || !this.socket.connected) {
-      console.warn('⚠️ Cannot join room: socket not connected');
+      console.warn(' Cannot join room: socket not connected');
       return;
     }
-    
-    console.log('📥 Joining session room:', sessionId);
+
+    console.log(' Joining session room:', sessionId);
     this.socket.emit('join_session', { session_id: sessionId });
   }
 
@@ -181,8 +168,8 @@ class SocketService {
     if (!this.socket || !this.socket.connected) {
       return;
     }
-    
-    console.log('📤 Leaving session room:', sessionId);
+
+    console.log(' Leaving session room:', sessionId);
     this.socket.emit('leave_session', { session_id: sessionId });
   }
 }
