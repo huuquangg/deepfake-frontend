@@ -17,13 +17,13 @@
 
 export const STREAMING_CONFIG = {
   // HTTP API endpoint for frame ingestion (legacy)
-  BASE_URL: "http://192.168.1.64:8096", // Backend IP:port
+  BASE_URL: "http://192.168.0.105:8096", // Backend IP:port
   
   // WebRTC API endpoint for real-time video streaming
-  WEBRTC_BASE_URL: "http://192.168.1.64:8096", // Backend WebRTC API
+  WEBRTC_BASE_URL: "http://192.168.0.105:8096", // Backend WebRTC API
   
   // Socket.IO endpoint for real-time predictions (Option B: Backend is server)
-  SOCKET_URL: "http://192.168.1.64:8096", // Backend Socket.IO server (proxied through API gateway)
+  SOCKET_URL: "http://192.168.0.105:8096", // Backend Socket.IO server (proxied through API gateway)
   
   ENDPOINTS: {
     INGEST_FRAME: "/api/video-streaming/ingest/frame",

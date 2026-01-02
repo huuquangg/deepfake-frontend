@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet } from "react-native";
 
 export default function FaceVerifyScreen() {
   const colorScheme = useColorScheme();
@@ -15,16 +15,20 @@ export default function FaceVerifyScreen() {
   const [isVerified, setIsVerified] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { toAccountNumber, amount, description } = params;
+  const { toAccountNumber, amount, description, verificationSuccess } = params;
+
+  // Check if verification was successful from camera screen
+  useEffect(() => {
+    if (verificationSuccess === 'true' && !isVerified) {
+      setIsVerified(true);
+      // Clear the param
+      router.setParams({ verificationSuccess: undefined });
+    }
+  }, [verificationSuccess, isVerified]);
 
   const handleSimulateCapture = () => {
-    setIsProcessing(true);
-
-    // Simulate camera capture and processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsVerified(true);
-    }, 1500);
+    // Navigate to camera screen for real-time detection
+    router.push('/features/detection/camera' as any);
   };
 
   const handleRetake = () => {

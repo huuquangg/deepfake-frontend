@@ -3,7 +3,7 @@
 //       Use "http://192.168.1.12:8090" for physical device on same LAN
 //       Use "http://localhost:8090" if using adb reverse tcp:8090 tcp:8090
 export const API_CONFIG = {
-  BASE_URL: "http://192.168.1.12:8090",  // Physical device on same LAN
+  BASE_URL: "http://192.168.0.105:8096",  // Physical device on same LAN
   ENDPOINTS: {
     // Auth
     LOGIN: "/api/core-banking/auth/login",
@@ -16,8 +16,6 @@ export const API_CONFIG = {
     GET_BALANCE: "/api/core-banking/account/balance",
 
     // Transaction
-    TRANSFER: "/api/core-banking/transaction/transfer",
-    GET_TRANSACTION_HISTORY: "/api/core-banking/transaction/history",
     TRANSFER: "/api/core-banking/transaction/transfer",
     GET_TRANSACTION_HISTORY: "/api/core-banking/transaction/history",
   },

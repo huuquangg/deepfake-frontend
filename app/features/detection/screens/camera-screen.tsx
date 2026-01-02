@@ -4,6 +4,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useIsFocused } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
@@ -15,6 +16,7 @@ import { createWebRTCService, WebRTCService } from '../../../services/video-stre
 const SESSION_ID = STREAMING_CONFIG.DEFAULT_SESSION_ID;
 
 export default function CameraScreen() {
+  const router = useRouter();
   const isFocused = useIsFocused();
   const colorScheme = useColorScheme();
   const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
@@ -25,13 +27,23 @@ export default function CameraScreen() {
   const cameraRef = useRef<Camera>(null);
   const captureIntervalRef = useRef<any>(null);
   const frameCounter = useRef<number>(0);
+  const processingQueue = useRef<number>(0); // Track frames in processing pipeline
+  const fakeDetectionStartTime = useRef<number | null>(null);
+  const alertShown = useRef<boolean>(false);
+  const realDetectionStartTime = useRef<number | null>(null);
+  const successNavigated = useRef<boolean>(false);
   
   // Vision Camera setup
   const device = useCameraDevice('front');
   const { hasPermission, requestPermission } = useCameraPermission();
 
-  // Capture and send frames using takePhoto
-  const captureAndSendFrame = async () => {
+  // Capture and send frames using takePhoto (truly non-blocking)
+  const captureAndSendFrame = () => {
+    // Skip if too many frames are already processing (max 2 in pipeline)
+    if (processingQueue.current >= 2) {
+      return;
+    }
+
     // Check if camera is still active and frames channel is ready
     if (!cameraRef.current || 
         !webrtcService.current?.isFramesChannelReady() || 
@@ -40,55 +52,58 @@ export default function CameraScreen() {
       return;
     }
 
-    try {
-      const photo = await cameraRef.current.takePhoto({
-        enableShutterSound: false,
-      });
+    // Process frame asynchronously without blocking the capture loop
+    processingQueue.current++;
+    const frameNum = frameCounter.current++;
+    const startTime = Date.now();
 
-      // Resize to 640x480 with 70% quality (target: <100KB)
-      const resized = await manipulateAsync(
-        'file://' + photo.path,
-        [{ resize: { width: 640 } }], // Height auto-calculated to maintain aspect ratio
-        { compress: 0.7, format: SaveFormat.JPEG }
-      );
+    // Launch async processing pipeline (non-blocking)
+    (async () => {
+      try {
+        const photo = await cameraRef.current!.takePhoto({
+          enableShutterSound: false,
+        });
+        const captureTime = Date.now() - startTime;
 
-      // Read resized photo as base64
-      const base64 = await FileSystem.readAsStringAsync(resized.uri, {
-        encoding: 'base64',
-      });
+        // Process and send in parallel pipeline
+        const resized = await manipulateAsync(
+          'file://' + photo.path,
+          [{ resize: { width: 320 } }],
+          { compress: 0.5, format: SaveFormat.JPEG }
+        );
+        const resizeTime = Date.now() - startTime - captureTime;
 
-      // Send frame
-      await webrtcService.current.sendFrame(base64);
-      
-      frameCounter.current++;
-      
-      // Log every frame for detailed tracking
-      if (frameCounter.current % 5 === 0) {
-        const sizeKB = (base64.length / 1024).toFixed(1);
-        console.log(`📸 Frame ${frameCounter.current} sent (${sizeKB} KB)`);
+        const base64 = await FileSystem.readAsStringAsync(resized.uri, {
+          encoding: 'base64',
+        });
+        const readTime = Date.now() - startTime - captureTime - resizeTime;
+
+        // Send immediately
+        webrtcService.current!.sendFrame(base64).catch(() => {});
+        const totalTime = Date.now() - startTime;
+        
+        // Log every 30 frames
+        if (frameNum % 30 === 0) {
+          const sizeKB = (base64.length / 1024).toFixed(1);
+          // console.log(`📸 Frame ${frameNum} | ${sizeKB}KB | Time: ${totalTime}ms (capture:${captureTime}ms resize:${resizeTime}ms read:${readTime}ms)`);
+          setFrameCount(frameNum);
+        }
+      } catch (error: any) {
+        // Silent failure for closed camera
+      } finally {
+        processingQueue.current--;
       }
-      
-      // Update UI every 15 frames
-      if (frameCounter.current % 15 === 0) {
-        setFrameCount(frameCounter.current);
-        console.log(`✅ Total frames sent: ${frameCounter.current}`);
-      }
-    } catch (error: any) {
-      // Only log if camera isn't closed (expected during cleanup)
-      if (!error?.message?.includes('Camera is closed')) {
-        console.error(`❌ Frame ${frameCounter.current + 1} failed:`, error);
-      }
-    }
+    })();
   };
 
   // Start frame capture
   const startFrameCapture = () => {
     if (captureIntervalRef.current) return;
     
-    console.log('🎬 Starting frame capture at ~15 FPS');
+    // console.log('🎬 Starting frame capture at 30 FPS (real-time)');
     captureIntervalRef.current = setInterval(() => {
       captureAndSendFrame();
-    }, 66); // ~15 FPS
+    }, 33); // 30 FPS (33.33ms per frame)
   };
 
   // Stop frame capture
@@ -96,7 +111,7 @@ export default function CameraScreen() {
     if (captureIntervalRef.current) {
       clearInterval(captureIntervalRef.current);
       captureIntervalRef.current = null;
-      console.log(`🎬 Frame capture stopped. Total: ${frameCounter.current}`);
+      // console.log(`🎬 Frame capture stopped. Total: ${frameCounter.current}`);
     }
   };
 
@@ -106,24 +121,20 @@ export default function CameraScreen() {
 
     const initializeWebRTC = async () => {
       try {
-        console.log('🚀 Initializing WebRTC signaling...');
+        // console.log('🚀 Initializing WebRTC signaling...');
         
         webrtcService.current = createWebRTCService({
           sessionId: SESSION_ID,
           onConnectionStateChange: (state) => {
-            console.log(`🔗 WebRTC connection state: ${state}`);
             setWebrtcConnectionState(state);
           },
           onICEConnectionStateChange: (state) => {
-            console.log(`🧊 ICE connection state: ${state}`);
           },
           onFramesChannelOpen: () => {
-            console.log('✅ Frames channel ready - starting capture');
             frameCounter.current = 0;
             startFrameCapture();
           },
           onError: (error) => {
-            console.error('❌ WebRTC error:', error);
             setWebrtcConnectionState('failed');
             Alert.alert(
               'WebRTC Error',
@@ -136,9 +147,7 @@ export default function CameraScreen() {
         // Initialize signaling connection (data channels only, no media tracks)
         await webrtcService.current.initializeConnection();
         
-        console.log('✅ WebRTC signaling established');
       } catch (error) {
-        console.error('Failed to initialize WebRTC:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         Alert.alert(
           'WebRTC Error',
@@ -152,7 +161,6 @@ export default function CameraScreen() {
     initializeWebRTC();
 
     return () => {
-      console.log('🔌 Cleaning up WebRTC connection...');
       stopFrameCapture();
       if (webrtcService.current) {
         webrtcService.current.close();
@@ -167,7 +175,7 @@ export default function CameraScreen() {
   useEffect(() => {
     if (!isFocused) return;
 
-    console.log('Setting up Socket.IO connection...');
+    // console.log('Setting up Socket.IO connection...');
     
     // Connect to Socket.IO and listen for results
     socketService.connect(SESSION_ID, (result: DetectionResult) => {
@@ -182,12 +190,81 @@ export default function CameraScreen() {
     }, 2000);
 
     return () => {
-      console.log('Cleaning up Socket.IO connection...');
+      // console.log('Cleaning up Socket.IO connection...');
       clearInterval(statusInterval);
       socketService.disconnect();
       setIsSocketConnected(false);
     };
   }, [isFocused]);
+
+  // Track fake detection duration and show alert
+  useEffect(() => {
+    if (!detectionResult || !isFocused) {
+      fakeDetectionStartTime.current = null;
+      realDetectionStartTime.current = null;
+      return;
+    }
+
+    if (detectionResult.label === 'FAKE') {
+      // Reset real detection tracking
+      realDetectionStartTime.current = null;
+      successNavigated.current = false;
+
+      // Start tracking fake detection time
+      if (fakeDetectionStartTime.current === null) {
+        fakeDetectionStartTime.current = Date.now();
+      } else {
+        // Check if fake has been detected for 10 seconds
+        const durationMs = Date.now() - fakeDetectionStartTime.current;
+        const durationSeconds = durationMs / 1000;
+
+        if (durationSeconds >= 10 && !alertShown.current) {
+          alertShown.current = true;
+          Alert.alert(
+            '⚠️ Deepfake Detected',
+            'Fake content has been detected for more than 10 seconds. Returning to main screen for your safety.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  router.back();
+                },
+              },
+            ],
+            { cancelable: false }
+          );
+        }
+      }
+    } else if (detectionResult.label === 'REAL') {
+      // Reset fake detection tracking
+      fakeDetectionStartTime.current = null;
+      alertShown.current = false;
+
+      // Start tracking real detection time
+      if (realDetectionStartTime.current === null) {
+        realDetectionStartTime.current = Date.now();
+      } else {
+        // Check if real has been detected for 10 seconds
+        const durationMs = Date.now() - realDetectionStartTime.current;
+        const durationSeconds = durationMs / 1000;
+
+        if (durationSeconds >= 10 && !successNavigated.current) {
+          successNavigated.current = true;
+          // Navigate back with success flag
+          router.back();
+          // Use setParams or navigate with result
+          setTimeout(() => {
+            router.setParams({ verificationSuccess: 'true' });
+          }, 100);
+        }
+      }
+    } else {
+      // Reset all tracking if detection is UNKNOWN
+      fakeDetectionStartTime.current = null;
+      realDetectionStartTime.current = null;
+      alertShown.current = false;
+    }
+  }, [detectionResult, isFocused, router]);
 
   // Request camera permission on mount
   useEffect(() => {
@@ -229,25 +306,25 @@ export default function CameraScreen() {
       <View style={styles.overlay}>
         <View style={styles.topBar}>
           {/* WebRTC connection status */}
-          <ThemedView style={[
+          {/* <ThemedView style={[
             styles.badge,
             styles.socketBadge,
             webrtcConnectionState === 'connected' ? styles.socketConnected : 
             webrtcConnectionState === 'failed' ? styles.socketDisconnected :
             styles.socketConnecting
           ]}>
-            <ThemedText style={styles.badgeText}>
+            </ThemedView> */}
+            {/* <ThemedText style={styles.badgeText}>
               {webrtcConnectionState === 'connected' ? '🟢 WebRTC Connected' : 
                webrtcConnectionState === 'connecting' || webrtcConnectionState === 'new' ? '🟡 Connecting...' :
                webrtcConnectionState === 'failed' ? '🔴 Failed' :
                webrtcConnectionState === 'closed' ? '⚫ Closed' :
                webrtcConnectionState === 'disconnected' ? '🔴 Disconnected' :
                `🟠 ${webrtcConnectionState}`}
-            </ThemedText>
-          </ThemedView>
+            </ThemedText> */}
 
           {/* Socket connection status */}
-          <ThemedView style={[
+          {/* <ThemedView style={[
             styles.badge,
             styles.socketBadge,
             isSocketConnected ? styles.socketConnected : styles.socketDisconnected
@@ -255,16 +332,16 @@ export default function CameraScreen() {
             <ThemedText style={styles.badgeText}>
               {isSocketConnected ? '🟢 Socket Connected' : '🔴 Socket Disconnected'}
             </ThemedText>
-          </ThemedView>
+          </ThemedView> */}
 
           {/* Frame counter */}
-          {webrtcConnectionState === 'connected' && frameCount > 0 && (
+          {/* {webrtcConnectionState === 'connected' && frameCount > 0 && (
             <ThemedView style={[styles.badge, styles.frameBadge]}>
               <ThemedText style={styles.badgeText}>
                 📸 Frames: {frameCount}
               </ThemedText>
             </ThemedView>
-          )}
+          )} */}
           
           {/* Detection result */}
           {detectionResult && (
@@ -275,9 +352,9 @@ export default function CameraScreen() {
               styles.resultUnknown
             ]}>
               <ThemedText style={styles.resultLabel}>
-                {detectionResult.label === 'REAL' ? '✅ REAL' : 
-                 detectionResult.label === 'FAKE' ? '⚠️ FAKE' : 
-                 '❓ UNKNOWN'}
+                {detectionResult.label === 'REAL' ? ' REAL' : 
+                 detectionResult.label === 'FAKE' ? ' FAKE' : 
+                 ' UNKNOWN'}
               </ThemedText>
               <ThemedText style={styles.resultConfidence}>
                 {(detectionResult.confidence * 100).toFixed(1)}% confidence
